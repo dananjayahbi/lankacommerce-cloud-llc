@@ -1,9 +1,20 @@
-export default function StoreLayout({ children }: { children: React.ReactNode }) {
+import { cookies } from "next/headers";
+import { StoreLayoutClient } from "./StoreLayoutClient";
+
+export default async function StoreLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Read the access token server-side to pass to StoreLayoutClient for store hydration
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("access_token")?.value;
+
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Shell placeholder — the AppSidebar (bg-navy) and main content area will be
-          integrated in SubPhase 02.xx when the navigation components are built. */}
-      {children}
+      <StoreLayoutClient accessToken={accessToken}>
+        {children}
+      </StoreLayoutClient>
     </div>
   );
 }

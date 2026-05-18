@@ -1,4 +1,4 @@
-.PHONY: runserver migrate makemigrations shell test seed loaddata lint format format-check
+.PHONY: runserver migrate makemigrations shell test seed seed-superadmin loaddata lint format format-check
 
 PYTHON = .venv/Scripts/python
 PIP = .venv/Scripts/pip
@@ -20,6 +20,9 @@ test:
 
 seed:
 	$(PYTHON) manage.py seed_phase1
+
+seed-superadmin:
+	$(PYTHON) manage.py seed_superadmin
 
 loaddata:
 	$(PYTHON) manage.py loaddata $(FIXTURE)

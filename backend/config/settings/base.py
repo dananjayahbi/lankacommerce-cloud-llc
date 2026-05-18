@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 from decouple import config
@@ -47,8 +48,10 @@ INSTALLED_APPS = [
     # Third-party
     "rest_framework",
     "corsheaders",
+    "rest_framework_simplejwt.token_blacklist",
     # LankaCommerce apps
     "apps.core",
+    "apps.accounts",
 ]
 
 MIDDLEWARE = [
@@ -107,13 +110,58 @@ DATABASES = {
 
 
 REST_FRAMEWORK = {
-    "DEFAULT_RENDERER_CLASSES": [
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_RENDERER_CLASSES": (
         "rest_framework.renderers.JSONRenderer",
-    ],
-    "DEFAULT_PARSER_CLASSES": [
+    ),
+    "DEFAULT_PARSER_CLASSES": (
         "rest_framework.parsers.JSONParser",
-    ],
+        "rest_framework.parsers.MultiPartParser",
+        "rest_framework.parsers.FormParser",
+    ),
+    # Throttle rate configuration
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/15min",
+        "pin_login": "10/15min",
+        "forgot_password": "5/hour",
+        "anon": "100/minute",
+        "user": "1000/minute",
+    },
 }
+
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
+# Development: in-process memory cache (fast, resets on server restart)
+# Production: override with Redis cache in production.py
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "lankacommerce-cache",
+    }
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": config("SECRET_KEY"),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "TOKEN_OBTAIN_SERIALIZER": "apps.accounts.serializers.CustomTokenObtainPairSerializer",
+}
+
+# Custom user model
+AUTH_USER_MODEL = "accounts.CustomUser"
 
 
 # Password validation
@@ -151,3 +199,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+# Email (overridden per environment)
+EMAIL_FROM = "noreply@lankacommerce.dev"
+PASSWORD_RESET_TIMEOUT_HOURS = 1
