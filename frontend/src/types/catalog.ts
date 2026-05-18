@@ -8,12 +8,20 @@ export type ProductStatus = "ACTIVE" | "ARCHIVED";
 export type TaxRule = "STANDARD_VAT" | "SSCL" | "VAT_EXEMPT";
 export type StockMovementReason =
   | "SALE"
-  | "RETURN"
-  | "ADJUSTMENT"
-  | "IMPORT"
-  | "RECOUNT"
+  | "SALE_RETURN"
   | "PURCHASE_RECEIPT"
-  | "STOCK_TAKE_ADJUSTMENT";
+  | "MANUAL_ADJUSTMENT"
+  | "STOCK_TAKE_ADJUSTMENT"
+  | "DAMAGE_WRITE_OFF"
+  | "TRANSFER_IN"
+  | "TRANSFER_OUT"
+  | "INITIAL_STOCK";
+
+export type StockTakeStatus =
+  | "IN_PROGRESS"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED";
 
 export interface Category {
   id: string;
@@ -88,6 +96,10 @@ export interface StockMovement {
   id: string;
   variant_id: string;
   variant_sku: string;
+  variant_size: string | null;
+  variant_colour: string | null;
+  product_name: string;
+  category_name: string | null;
   reason: StockMovementReason;
   quantity_delta: number;
   quantity_before: number;
@@ -95,6 +107,67 @@ export interface StockMovement {
   note: string | null;
   actor_name: string | null;
   created_at: string;
+}
+
+export interface StockTakeSession {
+  id: string;
+  status: StockTakeStatus;
+  category_id: string | null;
+  category_name: string | null;
+  initiated_by_name: string;
+  approved_by_name: string | null;
+  started_at: string;
+  completed_at: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  item_count: number;
+  discrepancy_count: number | null;
+}
+
+export interface StockTakeItem {
+  id: string;
+  session_id: string;
+  variant_id: string;
+  variant_sku: string;
+  variant_size: string | null;
+  variant_colour: string | null;
+  variant_barcode: string | null;
+  product_name: string;
+  category_name: string | null;
+  system_quantity: number;
+  counted_quantity: number | null;
+  discrepancy: number | null;
+  needs_recount: boolean;
+}
+
+export interface LowStockVariant {
+  id: string;
+  sku: string;
+  stock_quantity: number;
+  low_stock_threshold: number;
+  shortfall: number;
+  product_name: string;
+  category_name: string | null;
+  size: string | null;
+  colour: string | null;
+}
+
+export interface StockValuationCategory {
+  category_id: string | null;
+  category_name: string | null;
+  variant_count: number;
+  retail_value: string;
+  cost_value: string;
+}
+
+export interface StockValuation {
+  retail_value: string;
+  cost_value: string;
+  estimated_margin: string;
+  estimated_margin_percent: string;
+  variant_count: number;
+  calculated_at: string;
+  category_breakdown: StockValuationCategory[];
 }
 
 // RBAC status helper for display

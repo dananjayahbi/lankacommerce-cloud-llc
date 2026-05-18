@@ -255,6 +255,50 @@ class Command(BaseCommand):
             ProductVariant.objects.bulk_create(all_variants)
             variant_count = len(all_variants)
 
+        # --- BEGIN: Stock Movement Seeding (added by Task 02.03.12) ---
+        from datetime import timedelta
+        from django.utils import timezone as _tz
+        from apps.catalog.models import StockMovement, StockMovementReason
+
+        base_time = _tz.now() - timedelta(days=30)
+        movements_to_create: list[StockMovement] = []
+
+        all_persisted_variants = ProductVariant.objects.filter(
+            tenant=dev_tenant, deleted_at__isnull=True
+        ).values_list("id", "stock_quantity")
+
+        existing_initial_variant_ids = set(
+            StockMovement.objects.filter(
+                tenant=dev_tenant,
+                reason=StockMovementReason.INITIAL_STOCK,
+            ).values_list("variant_id", flat=True)
+        )
+
+        for idx, (variant_id, stock_quantity) in enumerate(all_persisted_variants):
+            if stock_quantity == 0:
+                continue
+            if variant_id in existing_initial_variant_ids:
+                continue
+            created_at = base_time + timedelta(minutes=idx * 4)
+            movements_to_create.append(
+                StockMovement(
+                    tenant=dev_tenant,
+                    variant_id=variant_id,
+                    reason=StockMovementReason.INITIAL_STOCK,
+                    quantity_before=0,
+                    quantity_after=stock_quantity,
+                    quantity_delta=stock_quantity,
+                    note="Initial stock seeded for development environment.",
+                    created_at=created_at,
+                )
+            )
+
+        if movements_to_create:
+            StockMovement.objects.bulk_create(movements_to_create)
+
+        self.stdout.write(self.style.SUCCESS(f"Stock movements seeded: {len(movements_to_create)}"))
+        # --- END: Stock Movement Seeding ---
+
         self.stdout.write(self.style.SUCCESS(f"Tenant:     {dev_tenant.subdomain}"))
         self.stdout.write(self.style.SUCCESS(f"Categories: {cat_count}"))
         self.stdout.write(self.style.SUCCESS(f"Brands:     {brand_count}"))

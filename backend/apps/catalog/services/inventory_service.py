@@ -34,6 +34,9 @@ from apps.catalog.models import (
     StockTakeStatus,
 )
 
+# Imported lazily inside functions to avoid circular imports
+# from apps.notifications.models import Notification, NotificationType
+
 
 # ═════════════════════════════════════════════════════════════════
 # Core stock adjustment
@@ -48,11 +51,13 @@ def adjust_stock(
     *,
     note: str | None = None,
     reference_id: Any = None,
-) -> tuple[ProductVariant, StockMovement]:
+) -> tuple[ProductVariant, StockMovement, bool]:
     """Adjust the stock quantity of a single variant.
 
     Uses ``select_for_update()`` to acquire a row-level exclusive lock,
     preventing concurrent writes to the same variant row.
+
+    Returns a 3-tuple: (variant, movement, low_stock_triggered).
 
     Raises:
         NotFoundError: if the variant does not exist for this tenant.
@@ -103,21 +108,42 @@ def adjust_stock(
             stock_take_session_id=stock_take_session_id,
         )
 
-    return variant, movement
+        low_stock_triggered = (
+            variant.low_stock_threshold > 0
+            and quantity_after <= variant.low_stock_threshold
+        )
 
+    # Create low-stock notifications (best-effort; never propagate failures)
+    if low_stock_triggered:
+        try:
+            from apps.accounts.models import CustomUser, UserRole  # noqa: PLC0415
+            from apps.notifications.models import Notification, NotificationType  # noqa: PLC0415
 
-# ═════════════════════════════════════════════════════════════════
-# Bulk stock adjustment
-# ═════════════════════════════════════════════════════════════════
+            recipients = CustomUser.objects.filter(
+                tenant_id=tenant_id,
+                role__in=[UserRole.OWNER, UserRole.MANAGER],
+                is_active=True,
+            ).values_list("id", flat=True)
+            notifications = [
+                Notification(
+                    tenant_id=tenant_id,
+                    recipient_id=recipient_id,
+                    notification_type=NotificationType.LOW_STOCK_ALERT,
+                    title=f"Low stock: {variant.sku}",
+                    body=(
+                        f"{variant.sku} has fallen to {quantity_after} units, "
+                        f"below the threshold of {variant.low_stock_threshold} units."
+                    ),
+                    related_entity_type="ProductVariant",
+                    related_entity_id=str(variant.id),
+                )
+                for recipient_id in recipients
+            ]
+            Notification.objects.bulk_create(notifications, ignore_conflicts=True)
+        except Exception:  # noqa: BLE001
+            pass  # Notification failures must never break stock adjustments
 
-def bulk_adjust_stock(
-    tenant_id: Any,
-    adjustments: list[dict],
-    actor_id: Any,
-) -> list[tuple[ProductVariant, StockMovement]]:
-    """Apply multiple stock adjustments in a single atomic transaction.
-
-    If any single adjustment fails (e.g. insufficient stock), the entire
+    return variant, movement, low_stock_triggered
     batch is rolled back.
     """
     results: list[tuple[ProductVariant, StockMovement]] = []
@@ -289,6 +315,15 @@ def complete_stock_take_session(
     session.status = StockTakeStatus.PENDING_APPROVAL
     session.completed_at = timezone.now()
     session.save(update_fields=["status", "completed_at"])
+    try:
+        from apps.catalog.services.audit_service import log_audit_event, AuditAction
+        log_audit_event(
+            tenant_id=tenant_id, actor_id=actor_id,
+            action=AuditAction.STOCK_TAKE_SUBMITTED,
+            resource_type="StockTakeSession", resource_id=session.id,
+        )
+    except Exception:  # noqa: BLE001
+        pass
     return session
 
 
@@ -334,7 +369,15 @@ def approve_stock_take(
         if notes is not None:
             session.notes = notes
         session.save(update_fields=["status", "approved_by_id", "approved_at", "notes"])
-
+    try:
+        from apps.catalog.services.audit_service import log_audit_event, AuditAction
+        log_audit_event(
+            tenant_id=tenant_id, actor_id=actor_id,
+            action=AuditAction.STOCK_TAKE_APPROVED,
+            resource_type="StockTakeSession", resource_id=session.id,
+        )
+    except Exception:  # noqa: BLE001
+        pass
     return session
 
 
@@ -360,6 +403,16 @@ def reject_stock_take(
     session.approved_at = timezone.now()
     session.notes = notes
     session.save(update_fields=["status", "approved_by_id", "approved_at", "notes"])
+    try:
+        from apps.catalog.services.audit_service import log_audit_event, AuditAction
+        log_audit_event(
+            tenant_id=tenant_id, actor_id=actor_id,
+            action=AuditAction.STOCK_TAKE_REJECTED,
+            resource_type="StockTakeSession", resource_id=session.id,
+            after={"rejection_reason": notes},
+        )
+    except Exception:  # noqa: BLE001
+        pass
     return session
 
 

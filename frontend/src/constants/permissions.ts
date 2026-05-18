@@ -30,6 +30,8 @@ export const PERMISSIONS = {
   STOCK_RECEIVE: "stock.receive",
   STOCK_TRANSFER: "stock.transfer",
   STOCK_WRITE_OFF: "stock.write_off",
+  STOCK_TAKE_MANAGE: "stock.take.manage",
+  STOCK_TAKE_APPROVE: "stock.take.approve",
 
   // Point of Sale
   SALES_CREATE: "sales.create",

@@ -1,234 +1,198 @@
-# LankaCommerce — Chat Session Summary
+# LankaCommerce Cloud LLC — Chat Summary (Updated May 18 2026)
 
-**Date:** May 18, 2026  
-**Scope:** Phase 01 — The Foundation › SubPhase 01.01 — Project Setup & Configuration  
-**Document Series:** `Updated-document-series/Phase_01_The_Foundation/SubPhase_01_01_Project_Setup/`
+This document is the handoff context for a new chat session. Read it in full before starting any work.
 
 ---
 
-## What Was Accomplished
+## 1. Project Overview
 
-### Task 01.01.01 — Initialize Monorepo Projects ✅
-
-- Created monorepo root with `.gitignore` (Python + Node.js) and root `package.json` with convenience scripts
-- **Backend:** `backend/` directory with Python venv at `backend/.venv/`, Django 6.0 installed via pip into the venv, Django project scaffolded with `django-admin startproject config .`
-- Layered settings structure created: `config/settings/base.py`, `development.py`, `production.py`; `manage.py`, `wsgi.py`, `asgi.py` all updated to use `config.settings.development`
-- **Frontend:** `frontend/` scaffolded with `pnpm create next-app@latest` — Next.js 16 (latest), TypeScript, ESLint, Tailwind CSS v4, `src/` dir, App Router, no Turbopack, `@/*` alias
-- `frontend/.npmrc` with `engine-strict=true` and `pnpm.onlyBuiltDependencies` to unblock build scripts
-- `frontend/package.json` has `"packageManager": "pnpm@11.1.2"`
-- `frontend/src/app/page.tsx` replaced with minimal LankaCommerce placeholder
-- `frontend/src/app/globals.css` stripped to Tailwind import only (design tokens added in Task 03)
-
-### Task 01.01.02 — Configure Django ORM and PostgreSQL ✅
-
-- `config/settings/base.py` updated: added `decouple` import, `SECRET_KEY`/`DEBUG`/`ALLOWED_HOSTS` read from env, `INSTALLED_APPS` includes `rest_framework`, `corsheaders`, `apps.core`, CORS middleware added at top of `MIDDLEWARE`, `REST_FRAMEWORK` config block added
-- **Database decision:** Started with PostgreSQL config but the cloud DB is PostgreSQL 12 and Django 6.0 requires PG 14+. Switched to **SQLite for development**; PostgreSQL config commented out in `base.py` and `.env` — ready to uncomment when the DB is upgraded
-- `backend/.env` created with SQLite active, PostgreSQL credentials commented out
-- `apps/` directory created as a Python package; `apps/core/` scaffolded via `startapp`; `apps/core/apps.py` updated to `name = 'apps.core'`
-- `backend/Makefile` created with targets: `runserver`, `migrate`, `makemigrations`, `shell`, `test`, `seed`, `lint`, `format`, `format-check`
-- All Django migrations applied successfully to SQLite (`db.sqlite3` created)
-
-### Task 01.01.03 — Setup Tailwind Design Tokens ✅
-
-- Tailwind CSS v4 is installed (CSS-first config, no `tailwind.config.ts` needed)
-- All 12 LankaCommerce colour tokens defined in `globals.css` via `@theme` block:
-  - `navy` (#1B2B3A), `orange` (#F97316), `orange-dark` (#EA6C05), `surface` (#FFFFFF), `background` (#F1F5F9), `border` (#E2E8F0)
-  - `success` (#22C55E), `warning` (#F59E0B), `danger` (#EF4444), `info` (#3B82F6), `text-primary` (#0F172A), `text-muted` (#64748B)
-- Font family tokens: `--font-body` and `--font-mono` defined
-- Border radius tokens: `--radius-card: 12px`, `--radius-button: 8px`
-- CSS custom properties duplicated in `:root` for JS runtime access
-- `body` rule sets background to `var(--color-background)` and color to `var(--color-text-primary)`
-
-### Task 01.01.04 — Install ShadCN and Theme ✅
-
-- ShadCN dependencies installed manually (CLI was non-interactive): `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`, all `@radix-ui/*` peer deps, `tw-animate-css`, `shadcn`
-- `components.json` created configuring ShadCN with New York style
-- ShadCN CSS variables in `globals.css` mapped to LankaCommerce tokens (`--primary` → orange, `--accent` → navy, `--destructive` → danger, etc.), dark mode block removed
-- `src/lib/utils.ts` created with `cn()` helper
-- Components scaffolded in `src/components/ui/`: `button.tsx`, `card.tsx`, `input.tsx`, `select.tsx`, `textarea.tsx`, `table.tsx`, `badge.tsx`, `dialog.tsx`, `sheet.tsx`
-- `badge.tsx` extended with `success`, `warning`, and `info` semantic variants
-
-### Task 01.01.05 — Configure Linting and Formatting ✅
-
-- ESLint configured with `@typescript-eslint` strict rules and `eslint-plugin-import`
-- Prettier configured with `prettier-plugin-tailwindcss`; `.prettierrc` created
-- Husky + lint-staged installed; pre-commit hook runs ESLint + Prettier on staged files
-- `ruff` and `black` installed in backend venv; `backend/pyproject.toml` with Ruff config
-
-### Task 01.01.06 — Create Directory Structure ✅
-
-**Frontend `src/` layout:**
-```
-src/
-  app/
-    (auth)/          ← login, forgot-password route group
-    (store)/         ← tenant ERP route group
-    (superadmin)/    ← super-admin route group
-  components/
-    ui/              ← ShadCN components
-    shared/          ← QueryProvider, shared layout pieces
-    inventory/
-    pos/
-    reports/
-    superadmin/
-  constants/
-  hooks/
-  lib/
-  stores/
-  types/
-```
-
-**Backend `apps/` layout:**
-```
-apps/
-  core/
-  accounts/
-  billing/
-  catalog/
-  crm/
-  operations/
-  pos/
-```
-
-### Task 01.01.07 — Configure TypeScript Strict Mode ✅
-
-- `tsconfig.json` updated with full strict mode: `strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `exactOptionalPropertyTypes`
-- `@/*` path alias confirmed pointing to `./src/*`
-
-### Task 01.01.08 — Setup Fonts and Assets ✅
-
-- Inter and JetBrains Mono loaded via `next/font/local` from `public/fonts/`
-- `src/lib/fonts.ts` exports `bodyFont` and `monoFont` with CSS variable names `--font-inter` and `--font-jetbrains-mono`
-- Font CSS variables wired into `globals.css` `@theme` block
-- `public/fonts/` directory created (font files need to be downloaded — see "Next Steps")
-
-### Task 01.01.09 — Create Global Layout Shell ✅
-
-- Root `src/app/layout.tsx` injects font CSS variables, wraps children in `QueryProvider`
-- Route group layout stubs created:
-  - `src/app/(auth)/layout.tsx` — centered auth layout
-  - `src/app/(store)/layout.tsx` — placeholder for tenant ERP shell (sidebar + main)
-  - `src/app/(superadmin)/layout.tsx` — placeholder for super-admin shell
-
-### Task 01.01.10 — Setup TanStack Query and Zustand ✅
-
-- `@tanstack/react-query` and `@tanstack/react-query-devtools` installed
-- `src/components/shared/QueryProvider.tsx` created with `QueryClient` and `ReactQueryDevtools`
-- `zustand` installed; store skeleton at `src/stores/useAppStore.ts`
-
-### Task 01.01.11 — Configure Django Seed Fixtures ✅
-
-- `backend/fixtures/` directory created
-- `backend/apps/core/management/commands/seed_phase1.py` management command scaffold created (no-op placeholder, ready for future fixture loading)
-
-### Task 01.01.12 — Create Env Config and Readme ✅
-
-- `backend/.env.example` created with all required variable definitions (no real secrets)
-- `frontend/.env.example` / `frontend/.env.local.example` created
-- Root `README.md` updated with project overview, setup instructions, and script reference
+A multi-tenant SaaS Point-of-Sale platform for Sri Lankan apparel retailers. The project follows a structured document-driven development plan stored in `document-series/`. Work proceeds **strictly in document order**, one sub-phase at a time.
 
 ---
 
-## Current State of the Repository
+## 2. Technical Stack
 
+| Layer | Technology |
+|---|---|
+| Backend | Django 6.0.5, Python 3.14, venv at `backend/.venv/` |
+| API | Django REST Framework 3.17.1, SimpleJWT 5.5.1 |
+| Database | SQLite (development) |
+| Frontend | Next.js 16.2.6 App Router, TypeScript strict mode, pnpm |
+| Styling | Tailwind CSS v4, ShadCN "base-nova" with `@base-ui/react` |
+| Data Fetching | TanStack Query v5 — `placeholderData: (prev) => prev` (NOT `keepPreviousData`) |
+| Forms | React Hook Form + Zod v4 (`import { z } from "zod/v4"`) |
+| State | Zustand v5 |
+| Dev server | `cd backend && make dev` / `cd frontend && pnpm dev` |
+
+### Key Frontend Conventions
+- **Auth store**: `useAuthStore` — holds `user` AND `accessToken`. Use `useAuthStore((s) => s.accessToken)` for Bearer tokens.
+- **Permissions**: `usePermissions()` hook → `.can()`, `.canAny()`, `.canAll()`; backend: `HasPermission` class in DRF.
+- **Routing**: `src/app/(store)/...` — NO `[tenantSlug]` segment in URLs. The store layout is at `src/app/(store)/layout.tsx`.
+- **API base**: `process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"`.
+- **Design tokens**: navy=`#1B2B3A`, orange=`#F97316`, border=`#E2E8F0`, text-muted=`#64748B`, bg=`#F1F5F9`.
+- **Fonts**: JetBrains Mono for monetary/numeric values.
+
+### Key Backend Conventions
+- Views follow the `APIView` pattern with `JWTAuthentication` + `IsAuthenticated` + `HasPermission(...)`.
+- Response helpers: `_ok(data, status_code=200)` and `_error(code, message, status_code)` — defined at top of `views.py`.
+- Service layers in `backend/apps/catalog/services/` — views never write to models directly.
+- `adjust_stock()` in `inventory_service.py` returns a **3-tuple**: `(variant, movement, low_stock_triggered: bool)`.
+
+---
+
+## 3. Phase & Task Completion Status
+
+### Phase 01 — The Foundation ✅ COMPLETE
+All sub-phases (01.01, 01.02, 01.03) are fully implemented.
+
+### Phase 02 — The Catalog ✅ COMPLETE
+All sub-phases fully implemented.
+
+#### SubPhase 02.01 — Product Data Models ✅
+#### SubPhase 02.02 — Product Management UI ✅
+#### SubPhase 02.03 — Advanced Stock Control ✅ ALL 12 TASKS DONE
+
+| Task | Title | Status |
+|------|-------|--------|
+| Permissions + Types | Add STOCK_TAKE_MANAGE/APPROVE permissions + catalog.ts types | ✅ |
+| 02.03.01 | Stock Control Dashboard Page | ✅ |
+| 02.03.02 | Manual Stock Adjustment Form | ✅ |
+| 02.03.03 | Stock Movement History Page | ✅ |
+| 02.03.04 | Stock Take Session Flow | ✅ |
+| 02.03.05 | Stock Take Approval Workflow | ✅ |
+| 02.03.06 | Low Stock Alert Widget | ✅ |
+| 02.03.07 | Low Stock Notifications (backend app + frontend popover) | ✅ |
+| 02.03.08 | Stock Adjustment API Routes | ✅ |
+| 02.03.09 | Stock Take API Routes | ✅ |
+| 02.03.10 | Stock Valuation View (frontend) | ✅ |
+| 02.03.11 | Stock Movement Audit Logging | ✅ |
+| 02.03.12 | Seed Stock Levels for Sample Catalog | ✅ |
+
+---
+
+## 4. Next Work — Phase 03, SubPhase 03.01 (POS Core)
+
+The next document to implement is **SubPhase 03.01 — POS Core** (`document-series/Phase_03_The_Terminal/SubPhase_03_01_POS_Core/`).
+
+It contains 12 tasks:
+
+| Task | Title |
+|------|-------|
+| 03.01.01 | Create Sale and SaleLine Models |
+| 03.01.02 | Create Shift and ShiftClosure Models |
+| 03.01.03 | Build Sale Service Layer |
+| 03.01.04 | Build Shift Service Layer |
+| 03.01.05 | Build POS Terminal Layout |
+| 03.01.06 | Build Product Grid and Category Navigation |
+| 03.01.07 | Build Variant Selection Modal |
+| 03.01.08 | Build Cart Panel |
+| 03.01.09 | Build Discount System |
+| 03.01.10 | Build Hold and Retrieve Sales |
+| 03.01.11 | Build POS Barcode Scanner Integration |
+| 03.01.12 | Build Sale History Page |
+
+**The overview doc is at:** `document-series/Phase_03_The_Terminal/SubPhase_03_01_POS_Core/SubPhase_03_01_Overview.md`
+
+Read the overview doc first, then implement tasks one at a time in order.
+
+---
+
+## 5. Key Existing Files (Reference)
+
+### Backend
+| Path | Description |
+|------|-------------|
+| `backend/apps/catalog/models.py` | Product, ProductVariant, StockMovement, StockTakeSession, StockTakeItem, etc. |
+| `backend/apps/catalog/services/inventory_service.py` | `adjust_stock()`, `complete_stock_take_session()`, `approve_stock_take()`, `reject_stock_take()` |
+| `backend/apps/catalog/services/product_service.py` | CRUD for categories, brands, products, variants |
+| `backend/apps/catalog/services/audit_service.py` | `log_audit_event()` + `AuditAction` constants |
+| `backend/apps/catalog/views.py` | All catalog + stock API views |
+| `backend/apps/catalog/urls.py` | All catalog URL patterns (prefixed with `api/catalog/`) |
+| `backend/apps/notifications/models.py` | `Notification` model (LOW_STOCK_ALERT, STOCK_TAKE_SUBMITTED, etc.) |
+| `backend/apps/notifications/views.py` | List, mark-read, mark-all-read |
+| `backend/apps/accounts/constants/permissions.py` | All permission string constants |
+| `backend/apps/pos/` | **Empty/stub** — this is where Phase 03 work goes |
+| `backend/config/urls.py` | Root URL config |
+| `backend/config/settings/base.py` | Installed apps, auth settings |
+
+### Frontend
+| Path | Description |
+|------|-------------|
+| `frontend/src/app/(store)/stock-control/page.tsx` | Stock control dashboard |
+| `frontend/src/app/(store)/stock-control/adjust/page.tsx` | Manual adjustment form |
+| `frontend/src/app/(store)/stock-control/movements/page.tsx` | Movement history |
+| `frontend/src/app/(store)/stock-control/stock-takes/page.tsx` | Session list |
+| `frontend/src/app/(store)/stock-control/stock-takes/[sessionId]/page.tsx` | Counting interface |
+| `frontend/src/app/(store)/stock-control/stock-takes/[sessionId]/review/page.tsx` | Approval workflow |
+| `frontend/src/app/(store)/stock-control/low-stock/page.tsx` | Low stock list |
+| `frontend/src/app/(store)/stock-control/valuation/page.tsx` | Stock valuation |
+| `frontend/src/app/(store)/pos/` | **Exists as stub** — Phase 03 work goes here |
+| `frontend/src/components/notifications/NotificationPopover.tsx` | Bell icon + popover |
+| `frontend/src/components/stock/LowStockAlertBadge.tsx` | Amber alert badge |
+| `frontend/src/constants/permissions.ts` | All permission constants |
+| `frontend/src/types/catalog.ts` | All catalog TypeScript types incl. stock take types |
+| `frontend/src/hooks/usePermissions.ts` | `.can()`, `.canAny()`, `.canAll()` |
+| `frontend/src/stores/authStore.ts` | `useAuthStore` — `user` + `accessToken` |
+
+---
+
+## 6. Important Operational Rules
+
+1. **Documents are one-directional** — read one task doc at a time, implement it, move to the next. Do not read all docs upfront.
+2. **Follow the existing folder structure** — e.g. `(store)/pos/` not `dashboard/[tenantSlug]/pos/`.
+3. **Use subagents** to manage context window when appropriate, but **never** let a subagent run `flow.py`.
+4. **After all tasks in a sub-phase are complete**, run: `python /e/My_GitHub_Repos/flow/flow.py` and wait for user review.
+5. The **only way to finish** a chat session is by getting a "finish" command from `flow.py`.
+
+---
+
+## 7. Backend API URL Structure
+
+All catalog routes are mounted at `api/catalog/` in `backend/config/urls.py`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `api/catalog/categories/` | GET, POST | List/create categories |
+| `api/catalog/products/` | GET, POST | List/create products |
+| `api/catalog/variants/<id>/` | GET, PATCH, DELETE | Variant detail |
+| `api/catalog/variants/barcode/<barcode>/` | GET | Barcode lookup |
+| `api/catalog/stock/adjust/` | POST | Single stock adjustment |
+| `api/catalog/stock/bulk-adjust/` | POST | Bulk stock adjustments |
+| `api/catalog/stock/movements/` | GET | Movement history (filterable, CSV) |
+| `api/catalog/stock/valuation/` | GET | Valuation by category (CSV) |
+| `api/catalog/stock/low-stock/` | GET | Low stock variants (CSV) |
+| `api/catalog/stock-takes/` | GET, POST | Session list/create |
+| `api/catalog/stock-takes/<id>/` | GET | Session detail |
+| `api/catalog/stock-takes/<id>/items/<item_id>/` | PATCH | Update counted quantity |
+| `api/catalog/stock-takes/<id>/complete/` | POST | Submit for approval |
+| `api/catalog/stock-takes/<id>/approve/` | POST | Approve + apply adjustments |
+| `api/catalog/stock-takes/<id>/reject/` | POST | Reject with reason |
+| `api/notifications/` | GET | List notifications |
+| `api/notifications/<id>/read/` | PATCH | Mark as read |
+| `api/notifications/read-all/` | PATCH | Mark all as read |
+
+---
+
+## 8. Model Notes
+
+- `StockTakeItem.is_recounted` (the field is `is_recounted`, NOT `needs_recount`). The API serializer translates this: `"needs_recount": item.is_recounted`.
+- `StockTakeSession.notes` stores the rejection reason when `status=REJECTED`.
+- `StockTakeSession.category_id` is a loose UUID field (no FK); category name must be looked up separately.
+- `adjust_stock()` returns `(variant, movement, low_stock_triggered: bool)` — always unpack all 3.
+- `StockMovementReason` values used in this phase: `INITIAL_STOCK`, `PURCHASE`, `SALE`, `RETURN`, `ADJUSTMENT`, `DAMAGE`, `STOCK_TAKE_ADJUSTMENT`, `TRANSFER_IN`, `TRANSFER_OUT`.
+
+---
+
+## 9. Permissions Added in Phase 02.03
+
+**Backend** (`backend/apps/accounts/constants/permissions.py`):
+```python
+STOCK_TAKE_MANAGE = "stock.take.manage"
+STOCK_TAKE_APPROVE = "stock.take.approve"
 ```
-lankacommerce-cloud-llc/
-  backend/
-    .env                   ← SQLite active; PostgreSQL creds commented out
-    .env.example
-    .venv/                 ← Python 3.14 venv with Django 6, DRF, ruff, black
-    apps/
-      core/, accounts/, billing/, catalog/, crm/, operations/, pos/
-    config/
-      settings/base.py, development.py, production.py
-    db.sqlite3             ← migrated SQLite dev database
-    Makefile
-    manage.py
-    pyproject.toml         ← ruff + black config
-    requirements.txt
-  frontend/
-    src/
-      app/
-        (auth)/, (store)/, (superadmin)/
-        layout.tsx, globals.css, page.tsx
-      components/ui/       ← 9 ShadCN components, LankaCommerce-themed
-      components/shared/   ← QueryProvider
-      stores/, hooks/, lib/, types/, constants/
-    package.json           ← pnpm@11.1.2, all deps installed
-    pnpm-lock.yaml
-    tsconfig.json          ← strict mode
-    .npmrc
-  .gitignore
-  package.json             ← root convenience scripts
-  CHAT_SUMMARY.md          ← this file
+
+**Frontend** (`frontend/src/constants/permissions.ts`):
+```ts
+STOCK_TAKE_MANAGE: "stock.take.manage",
+STOCK_TAKE_APPROVE: "stock.take.approve",
 ```
-
----
-
-## Decisions Made
-
-| Decision | Choice | Reason |
-|---|---|---|
-| Python package manager | `venv` + `pip` (not Poetry) | Poetry was not in PATH; venv is simpler for this environment |
-| Database (dev) | **SQLite** | Cloud PostgreSQL DB is v12; Django 6.0 requires v14+. Will switch when DB is upgraded |
-| Tailwind config style | CSS-first `@theme` in `globals.css` | Tailwind v4 is installed — no `tailwind.config.ts` needed |
-| ShadCN install method | Manual deps + file creation | CLI kept launching interactive prompts incompatible with piped input |
-
----
-
-## What To Do Next (SubPhase 01.01 Remaining)
-
-### Immediate / Blockers
-
-1. **Download font files** — Inter and JetBrains Mono `.woff2` files must be placed in `frontend/public/fonts/`. Without them, `next/font/local` will throw a build error.
-   - Inter: https://fonts.google.com/specimen/Inter (download variable font)
-   - JetBrains Mono: https://www.jetbrains.com/legalnotice/jetbrainsmono/
-
-2. **Validate frontend builds** — Run `pnpm dev` inside `frontend/` and confirm no errors on port 3000.
-
-3. **Validate backend server** — Run `source .venv/Scripts/activate && python manage.py runserver` inside `backend/` and confirm Django starts on port 8000 and `http://localhost:8000/admin` shows the login page.
-
-### SubPhase 01.01 Validation Checklist (from the spec)
-
-- [ ] `python manage.py runserver` starts without errors on port 8000
-- [ ] `pnpm dev` starts without errors on port 3000
-- [ ] `pnpm tsc --noEmit` passes with zero errors
-- [ ] `pnpm lint` passes with zero warnings and zero errors
-- [ ] `ruff check .` inside `backend/` passes with zero errors
-- [ ] All 12 colour tokens visible as Tailwind utility classes in IntelliSense
-- [ ] ShadCN Button primary variant shows orange (#F97316) in browser inspector
-- [ ] Inter and JetBrains Mono fonts load without layout shift (after font files are added)
-- [ ] All canonical directories exist in both backend and frontend
-
----
-
-## Next Phase: SubPhase 01.02 — Auth and RBAC
-
-Once SubPhase 01.01 validation is complete, proceed to:
-
-`Updated-document-series/Phase_01_The_Foundation/SubPhase_01_02_Auth_And_RBAC/`
-
-Tasks in order:
-1. `Task_01_02_01_Create_User_And_AuditLog_Models.md`
-2. `Task_01_02_02_Configure_Django_Authentication.md`
-3. `Task_01_02_03_Build_Login_Page.md`
-4. `Task_01_02_04_Implement_PIN_Login_Flow.md`
-5. `Task_01_02_05_Build_Middleware_Auth_Guard.md`
-6. `Task_01_02_06_Build_RBAC_Permission_System.md`
-7. `Task_01_02_07_Build_Forgot_Password_Flow.md`
-8. `Task_01_02_08_Implement_Auto_Logout_Screen_Lock.md`
-9. `Task_01_02_09_Setup_Session_Version_Management.md`
-10. `Task_01_02_10_Build_Login_Audit_Trail.md`
-11. `Task_01_02_11_Implement_Auth_Rate_Limiting.md`
-12. `Task_01_02_12_Seed_Super_Admin_Account.md`
-
----
-
-## PostgreSQL Migration Note
-
-When the cloud DB is upgraded to PostgreSQL 14+, do the following:
-
-1. In `backend/config/settings/base.py`: comment out the SQLite block, uncomment the PostgreSQL block
-2. In `backend/.env`: uncomment the `DB_*` variables
-3. Run `python manage.py migrate` to apply all migrations to PostgreSQL
-4. Delete `backend/db.sqlite3`
