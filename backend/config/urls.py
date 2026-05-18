@@ -22,4 +22,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("apps.accounts.urls", namespace="accounts")),
     path("api/admin/", include("apps.accounts.admin_urls")),
+    path("api/", include("apps.tenants.urls", namespace="tenants")),
+    path("api/", include("apps.core.urls", namespace="core")),
+    path("api/catalog/", include("apps.catalog.urls")),
 ]

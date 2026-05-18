@@ -14,12 +14,15 @@ export interface UserPayload {
 
 interface AuthState {
   user: UserPayload | null;
-  setUser: (user: UserPayload) => void;
+  /** Raw JWT access token — stored so client components can use it as a Bearer token in API calls. */
+  accessToken: string | null;
+  setUser: (user: UserPayload, accessToken?: string) => void;
   clearUser: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  setUser: (user) => set({ user }),
-  clearUser: () => set({ user: null }),
+  accessToken: null,
+  setUser: (user, accessToken) => set({ user, accessToken: accessToken ?? null }),
+  clearUser: () => set({ user: null, accessToken: null }),
 }));

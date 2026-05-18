@@ -7,7 +7,7 @@ from .models import AuditLog, CustomUser, PasswordResetToken
 
 @admin.register(CustomUser)
 class CustomUserAdmin(BaseUserAdmin):
-    list_display = ("email", "role", "tenant_id", "is_active", "is_staff", "created_at")
+    list_display = ("email", "role", "tenant", "is_active", "is_staff", "created_at")
     list_filter = ("role", "is_active", "is_staff")
     search_fields = ("email", "first_name", "last_name")
     ordering = ("-created_at",)
@@ -21,7 +21,7 @@ class CustomUserAdmin(BaseUserAdmin):
         ),
         (
             _("Tenant & Role"),
-            {"fields": ("tenant_id", "role", "permissions_list")},
+            {"fields": ("tenant", "role", "permissions_list")},
         ),
         (
             _("Session"),

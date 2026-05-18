@@ -16,6 +16,7 @@ export const PERMISSIONS = {
   PRODUCTS_DELETE: "products.delete",
   PRODUCTS_IMPORT: "products.import",
   PRODUCTS_EXPORT: "products.export",
+  PRODUCTS_VIEW_COST: "products.view_cost",
 
   // Categories
   CATEGORIES_VIEW: "categories.view",

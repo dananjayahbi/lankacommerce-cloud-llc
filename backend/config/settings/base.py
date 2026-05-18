@@ -52,6 +52,8 @@ INSTALLED_APPS = [
     # LankaCommerce apps
     "apps.core",
     "apps.accounts",
+    "apps.tenants",
+    "apps.catalog",
 ]
 
 MIDDLEWARE = [

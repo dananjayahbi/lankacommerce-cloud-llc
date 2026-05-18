@@ -27,14 +27,17 @@ export function StoreLayoutClient({
     if (!user && accessToken) {
       try {
         const payload = jwtDecode<UserPayload>(accessToken);
-        setUser({
-          user_id: payload.user_id,
-          email: payload.email,
-          role: payload.role as UserPayload["role"],
-          permissions: payload.permissions ?? [],
-          tenant_id: payload.tenant_id,
-          session_version: payload.session_version,
-        });
+        setUser(
+          {
+            user_id: payload.user_id,
+            email: payload.email,
+            role: payload.role as UserPayload["role"],
+            permissions: payload.permissions ?? [],
+            tenant_id: payload.tenant_id,
+            session_version: payload.session_version,
+          },
+          accessToken,
+        );
       } catch {
         // Token could not be decoded — middleware will handle redirection
       }

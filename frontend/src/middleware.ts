@@ -1,4 +1,4 @@
-import { jwtVerify, type JWTPayload } from "jose";
+import { decodeJwt, jwtVerify, type JWTPayload } from "jose";
 import { NextRequest, NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,16 @@ const MANAGEMENT_ONLY_ROUTES = [
 const NON_CASHIER_ROUTES = ["/store/stock"];
 
 const NON_STOCKCLERK_ROUTES = ["/store/pos"];
+
+const DJANGO_API_BASE =
+  process.env.DJANGO_API_BASE_URL ?? "http://localhost:8000";
+
+// Paths that should NOT trigger tenant status enforcement
+function isStoreRoute(pathname: string): boolean {
+  if (!pathname.startsWith("/store")) return false;
+  if (pathname === "/suspended" || pathname.startsWith("/suspended/")) return false;
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // JWT payload type
@@ -138,7 +148,52 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/store/stock", request.url));
   }
 
-  // 5. Pass verified user info to page components via request headers
+  // 5. Tenant status enforcement (store routes only, non-SUPER_ADMIN)
+  if (isStoreRoute(pathname) && role !== "SUPER_ADMIN") {
+    const tenantId = payload.tenant_id;
+
+    if (tenantId) {
+      try {
+        const statusRes = await fetch(
+          `${DJANGO_API_BASE}/api/tenants/${tenantId}/status/`,
+          { cache: "no-store" }
+        );
+
+        if (statusRes.ok) {
+          const { status: tenantStatus, grace_ends_at } = await statusRes.json();
+
+          if (tenantStatus === "SUSPENDED") {
+            const suspendedUrl = new URL("/suspended", request.url);
+            suspendedUrl.searchParams.set("from", pathname);
+            return NextResponse.redirect(suspendedUrl);
+          }
+
+          if (tenantStatus === "GRACE_PERIOD") {
+            const requestHeaders = new Headers(request.headers);
+            requestHeaders.set("x-user-id", payload.user_id);
+            requestHeaders.set("x-user-role", role);
+            requestHeaders.set("x-user-email", payload.email);
+            requestHeaders.set("x-tenant-id", tenantId);
+            requestHeaders.set("x-session-version", String(payload.session_version));
+            const gracePeriodResponse = NextResponse.next({
+              request: { headers: requestHeaders },
+            });
+            gracePeriodResponse.headers.set("x-grace-period", "true");
+            if (grace_ends_at) {
+              gracePeriodResponse.headers.set("x-grace-ends-at", grace_ends_at);
+            }
+            return gracePeriodResponse;
+          }
+          // ACTIVE or other — fall through to normal response
+        }
+        // Non-200 from status endpoint — allow through gracefully
+      } catch {
+        // Django unreachable — fail open (allow through)
+      }
+    }
+  }
+
+  // 6. Pass verified user info to page components via request headers
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-user-id", payload.user_id);
   requestHeaders.set("x-user-role", role);

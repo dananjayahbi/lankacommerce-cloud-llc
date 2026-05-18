@@ -68,9 +68,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=150, blank=True)
 
     # Multi-tenancy
-    tenant_id = models.UUIDField(
+    # ForeignKey uses lazy string ref "tenants.Tenant" to avoid circular imports.
+    # SET_NULL means removing a tenant does not cascade-delete users.
+    tenant = models.ForeignKey(
+        "tenants.Tenant",
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        related_name="users",
         db_index=True,
         help_text="The tenant this user belongs to. Null for SUPER_ADMIN.",
     )
@@ -142,7 +147,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["email"], name="idx_user_email"),
-            models.Index(fields=["tenant_id"], name="idx_user_tenant"),
+            models.Index(fields=["tenant"], name="idx_user_tenant"),
             models.Index(fields=["role"], name="idx_user_role"),
         ]
         verbose_name = "User"
