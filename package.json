@@ -1,0 +1,12 @@
+{
+  "name": "lanka-commerce",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && .venv/Scripts/python manage.py runserver",
+    "dev:frontend": "cd frontend && pnpm dev",
+    "lint:frontend": "cd frontend && pnpm lint",
+    "lint:backend": "cd backend && .venv/Scripts/ruff check .",
+    "format:backend": "cd backend && .venv/Scripts/black --check ."
+  }
+}

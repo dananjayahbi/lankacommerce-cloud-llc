@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand & surface colours */
+  --color-navy: #1B2B3A;
+  --color-orange: #F97316;
+  --color-orange-dark: #EA6C05;
+  --color-surface: #FFFFFF;
+  --color-background: #F1F5F9;
+  --color-border: #E2E8F0;
+
+  /* Semantic colours */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+  --color-text-primary: #0F172A;
+  --color-text-muted: #64748B;
+
+  /* Font families — populated at runtime by next/font via --font-body / --font-mono */
+  --font-body: system-ui, sans-serif;
+  --font-mono: Menlo, monospace;
+
+  /* Border radius tokens */
+  --radius-card: 12px;
+  --radius-button: 8px;
+}
+
+:root {
+  /* CSS custom properties for JS runtime access */
+  --color-navy: #1B2B3A;
+  --color-orange: #F97316;
+  --color-orange-dark: #EA6C05;
+  --color-surface: #FFFFFF;
+  --color-background: #F1F5F9;
+  --color-border: #E2E8F0;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+  --color-text-primary: #0F172A;
+  --color-text-muted: #64748B;
+
+  /* ShadCN variable bridge — mapped to LankaCommerce tokens */
+  --background: var(--color-surface);
+  --foreground: var(--color-text-primary);
+  --primary: var(--color-orange);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--color-background);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-background);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-navy);
+  --accent-foreground: #FFFFFF;
+  --destructive: var(--color-danger);
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --ring: var(--color-orange);
+  --radius: 8px;
+
+  /* Popover/card surface */
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text-primary);
+
+  /* Card surface */
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text-primary);
+}
+
+/* Global base styles */
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
