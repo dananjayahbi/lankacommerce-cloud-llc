@@ -174,6 +174,7 @@ class ProductVariant(models.Model):
 
 class StockMovementReason(models.TextChoices):
     SALE = "SALE", "Sale"
+    VOID_REVERSAL = "VOID_REVERSAL", "Void Reversal"
     SALE_RETURN = "SALE_RETURN", "Sale Return"
     PURCHASE_RECEIPT = "PURCHASE_RECEIPT", "Purchase Receipt"
     MANUAL_ADJUSTMENT = "MANUAL_ADJUSTMENT", "Manual Adjustment"

@@ -15,7 +15,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import CustomUser, PasswordResetToken
+from .models import CustomUser, PasswordResetToken, UserRole
 from .permissions import HasPermission, IsOwnerOrAbove  # noqa: F401 — available for later use
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -205,6 +205,69 @@ class SetPINView(APIView):
 
         return Response(
             {"detail": "PIN updated successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class VerifyPINView(APIView):
+    """
+    POST /api/auth/pin/verify/
+
+    Verifies a 4-digit manager PIN on behalf of an already-authenticated cashier.
+    Used by the POS terminal to authorise above-threshold discounts.
+
+    Request body: { "pin": "1234" }
+
+    Returns HTTP 200 with manager user_id and role on success.
+    Returns HTTP 401 for invalid or CASHIER-role PINs (indistinguishable to caller).
+    Returns HTTP 400 for malformed input.
+    """
+
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [PINRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        pin = request.data.get("pin", "")
+
+        # Validate: must be exactly 4 numeric digits
+        if not isinstance(pin, str) or len(pin) != 4 or not pin.isdigit():
+            return Response(
+                {"detail": "PIN must be a 4-digit numeric string."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant_id = request.user.tenant_id
+
+        # Retrieve all users in the same tenant who have a PIN set
+        candidates = CustomUser.objects.filter(
+            tenant_id=tenant_id,
+            is_active=True,
+        ).exclude(pin_hash="")
+
+        matching_user = None
+        for candidate in candidates:
+            if check_password(pin, candidate.pin_hash):
+                matching_user = candidate
+                break
+
+        # Treat CASHIER match same as no match (no role enumeration)
+        if matching_user is None or matching_user.role == UserRole.CASHIER:
+            return Response(
+                {
+                    "success": False,
+                    "error": {"code": "INVALID_PIN", "message": "Invalid PIN"},
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        return Response(
+            {
+                "success": True,
+                "data": {
+                    "user_id": str(matching_user.id),
+                    "role": matching_user.role,
+                },
+            },
             status=status.HTTP_200_OK,
         )
 

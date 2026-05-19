@@ -144,7 +144,16 @@ def adjust_stock(
             pass  # Notification failures must never break stock adjustments
 
     return variant, movement, low_stock_triggered
-    batch is rolled back.
+
+
+def bulk_adjust_stock(
+    tenant_id: Any,
+    actor_id: Any,
+    adjustments: list[dict],
+) -> list:
+    """Apply multiple stock adjustments atomically.
+
+    If any single adjustment fails the entire batch is rolled back.
     """
     results: list[tuple[ProductVariant, StockMovement]] = []
     with transaction.atomic():
@@ -428,7 +437,7 @@ def get_low_stock_variants(
     """Return variants whose stock_quantity <= low_stock_threshold.
 
     Uses a database-level field-to-field comparison via ``F()`` expressions
-    — no Python-side filtering.
+    -- no Python-side filtering.
     """
     qs = ProductVariant.objects.filter(
         tenant_id=tenant_id,

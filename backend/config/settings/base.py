@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.tenants",
     "apps.catalog",
     "apps.notifications",
+    "apps.pos",
 ]
 
 MIDDLEWARE = [
