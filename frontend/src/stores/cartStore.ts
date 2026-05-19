@@ -16,6 +16,12 @@ interface CartState {
   /** variantId of the cart line currently open for inline discount editing */
   activeLineId: string | null;
   heldSaleId: string | null;
+  /** Exchange flow: ID of the Return record whose credit is being consumed */
+  linkedReturnId: string | null;
+  /** Exchange credit amount (decimal string) to apply against this sale */
+  exchangeCredit: string | null;
+  /** Human-readable reference for the exchange (return short-ID) */
+  exchangeReturnRef: string | null;
 
   // Computed derived values
   getSubtotal: () => Decimal;
@@ -34,6 +40,8 @@ interface CartState {
   setActiveLine: (variantId: string | null) => void;
   clearCart: () => void;
   setHeldSaleId: (id: string | null) => void;
+  setExchangeCredit: (returnId: string, credit: string, ref: string) => void;
+  clearExchangeCredit: () => void;
   replaceCart: (
     items: CartItem[],
     cartDiscountAmount: string,
@@ -49,6 +57,9 @@ export const useCartStore = create<CartState>()((set, get) => ({
   authorizingManagerId: null,
   activeLineId: null,
   heldSaleId: null,
+  linkedReturnId: null,
+  exchangeCredit: null,
+  exchangeReturnRef: null,
 
   getSubtotal: () => {
     const { items } = get();
@@ -161,11 +172,22 @@ export const useCartStore = create<CartState>()((set, get) => ({
       authorizingManagerId: null,
       activeLineId: null,
       heldSaleId: null,
+      linkedReturnId: null,
+      exchangeCredit: null,
+      exchangeReturnRef: null,
     });
   },
 
   setHeldSaleId: (id) => {
     set({ heldSaleId: id });
+  },
+
+  setExchangeCredit: (returnId, credit, ref) => {
+    set({ linkedReturnId: returnId, exchangeCredit: credit, exchangeReturnRef: ref });
+  },
+
+  clearExchangeCredit: () => {
+    set({ linkedReturnId: null, exchangeCredit: null, exchangeReturnRef: null });
   },
 
   replaceCart: (items, cartDiscountAmount, cartDiscountPercent, authorizingManagerId) => {
@@ -176,6 +198,9 @@ export const useCartStore = create<CartState>()((set, get) => ({
       authorizingManagerId,
       activeLineId: null,
       heldSaleId: null,
+      linkedReturnId: null,
+      exchangeCredit: null,
+      exchangeReturnRef: null,
     });
   },
 }));

@@ -3,12 +3,14 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from apps.tenants.models import Tenant
 
 
 class PaymentMethod(models.TextChoices):
     CASH = "CASH", "Cash"
     CARD = "CARD", "Card"
     SPLIT = "SPLIT", "Split"
+    EXCHANGE = "EXCHANGE", "Exchange"
 
 
 class SaleStatus(models.TextChoices):
@@ -96,6 +98,14 @@ class Sale(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Populated when this sale is the replacement cart in an exchange return
+    linked_return = models.ForeignKey(
+        "pos.Return",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="exchange_sales",
+    )
 
     class Meta:
         indexes = [
@@ -195,3 +205,127 @@ class Payment(models.Model):
 
     def __str__(self) -> str:
         return f"Payment {self.method} Rs.{self.amount} for Sale {self.sale_id}"
+
+
+# ──────────────────────────────────────────────────────────────────
+# Return subsystem (SubPhase 03.03)
+# ──────────────────────────────────────────────────────────────────
+
+class ReturnRefundMethod(models.TextChoices):
+    CASH = "CASH", "Cash"
+    CARD_REVERSAL = "CARD_REVERSAL", "Card Reversal"
+    STORE_CREDIT = "STORE_CREDIT", "Store Credit"
+    EXCHANGE = "EXCHANGE", "Exchange"
+
+
+class ReturnStatus(models.TextChoices):
+    COMPLETED = "COMPLETED", "Completed"
+
+
+class Return(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        related_name="returns",
+    )
+    original_sale = models.ForeignKey(
+        Sale,
+        on_delete=models.PROTECT,
+        related_name="returns",
+    )
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="initiated_returns",
+    )
+    authorized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="authorized_returns",
+    )
+    refund_method = models.CharField(max_length=20, choices=ReturnRefundMethod.choices)
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    restock_items = models.BooleanField(default=True)
+    reason = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=ReturnStatus.choices,
+        default=ReturnStatus.COMPLETED,
+    )
+    card_reversal_reference = models.CharField(max_length=50, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["tenant", "created_at"]),
+            models.Index(fields=["original_sale"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return (
+            f"Return {self.refund_method} Rs.{self.refund_amount} "
+            f"for Sale {self.original_sale_id}"
+        )
+
+
+class ReturnLine(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    return_record = models.ForeignKey(
+        Return,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    original_sale_line = models.ForeignKey(
+        SaleLine,
+        on_delete=models.PROTECT,
+        related_name="return_lines",
+    )
+    variant = models.ForeignKey(
+        "catalog.ProductVariant",
+        on_delete=models.PROTECT,
+        related_name="return_lines",
+    )
+    product_name_snapshot = models.CharField(max_length=255)
+    variant_description_snapshot = models.CharField(max_length=255, blank=True)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    line_refund_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    is_restocked = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["return_record"]),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"ReturnLine {self.id} — {self.product_name_snapshot} "
+            f"x{self.quantity} (Return {self.return_record_id})"
+        )
+
+
+class StoreCredit(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        related_name="store_credits",
+    )
+    # customer FK will be added in Phase 04 when CRM Customer model exists
+    customer_id_ref = models.UUIDField(null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    used_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    note = models.TextField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"StoreCredit Rs.{self.amount} (tenant={self.tenant_id})"

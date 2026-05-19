@@ -51,6 +51,7 @@ function PaymentBadge({ method }: { method: PaymentMethod | null }) {
     CASH: "bg-[#22C55E] text-white",
     CARD: "bg-[#3B82F6] text-white",
     SPLIT: "bg-[#F97316] text-white",
+    EXCHANGE: "bg-[#8B5CF6] text-white",
   };
   return (
     <span className={cn("rounded-full px-2 py-0.5 font-inter text-[11px] font-medium", styles[method])}>

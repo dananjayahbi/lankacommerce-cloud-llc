@@ -272,6 +272,62 @@ class VerifyPINView(APIView):
         )
 
 
+class VerifyManagerPINView(APIView):
+    """
+    POST /api/auth/verify-pin/
+
+    Verifies a manager's PIN given their employee ID (username or UUID).
+    Used by the Return Wizard to authorise a return without issuing a JWT.
+
+    Request body: { "employee_id": "string", "pin": "1234" }
+
+    ALWAYS returns HTTP 200 for security (no enumeration).
+    Response body: { "success": bool, "user_id": str|null, "name": str|null, "role": str|null }
+    """
+
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [PINRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        employee_id = str(request.data.get("employee_id", "")).strip()
+        pin = str(request.data.get("pin", "")).strip()
+
+        _fail = {"success": False, "user_id": None, "name": None, "role": None}
+
+        if not employee_id or not pin:
+            return Response({"success": True, "data": _fail}, status=status.HTTP_200_OK)
+
+        tenant_id = request.user.tenant_id
+
+        try:
+            candidate = CustomUser.objects.get(
+                username=employee_id,
+                tenant_id=tenant_id,
+                is_active=True,
+            )
+        except CustomUser.DoesNotExist:
+            return Response({"success": True, "data": _fail}, status=status.HTTP_200_OK)
+
+        if not candidate.pin_hash or not check_password(pin, candidate.pin_hash):
+            return Response({"success": True, "data": _fail}, status=status.HTTP_200_OK)
+
+        if candidate.role == UserRole.CASHIER:
+            return Response({"success": True, "data": _fail}, status=status.HTTP_200_OK)
+
+        return Response(
+            {
+                "success": True,
+                "data": {
+                    "success": True,
+                    "user_id": str(candidate.id),
+                    "name": candidate.get_full_name() or candidate.email,
+                    "role": candidate.role,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class ForgotPasswordView(APIView):
     """
     POST /api/auth/forgot-password/

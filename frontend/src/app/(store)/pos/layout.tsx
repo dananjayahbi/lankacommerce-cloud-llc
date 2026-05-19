@@ -30,8 +30,11 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
 
-  // History sub-route uses the standard store layout — bypass shift gate
-  const isHistoryRoute = pathname.includes("/pos/history");
+  // History/Returns/ShiftClose sub-routes use the standard store layout — bypass shift gate
+  const isHistoryRoute =
+    pathname.includes("/pos/history") ||
+    pathname.includes("/pos/returns") ||
+    pathname.includes("/pos/shift-close");
 
   // Redirect if user lacks POS access permission
   useEffect(() => {

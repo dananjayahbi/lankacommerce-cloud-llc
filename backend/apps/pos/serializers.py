@@ -4,7 +4,18 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.pos.models import Payment, PaymentMethod, Sale, SaleLine, Shift, ShiftClosure
+from apps.pos.models import (
+    Payment,
+    PaymentMethod,
+    Return,
+    ReturnLine,
+    ReturnRefundMethod,
+    Sale,
+    SaleLine,
+    Shift,
+    ShiftClosure,
+    StoreCredit,
+)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -60,6 +71,8 @@ class CreateSaleSerializer(serializers.Serializer):
     )
     # Offline support: timestamp when the sale was assembled offline
     queued_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+    # Exchange: ID of the Return this sale is fulfilling
+    linked_return_id = serializers.UUIDField(required=False, allow_null=True, default=None)
 
     def validate_lines(self, value):
         if not value:
@@ -173,6 +186,7 @@ class SaleSerializer(serializers.ModelSerializer):
             "completed_at",
             "created_at",
             "updated_at",
+            "linked_return_id",
             "lines",
             "payments",
         ]
@@ -268,3 +282,82 @@ class ShiftSerializer(serializers.ModelSerializer):
 
     def get_sale_count(self, obj):
         return getattr(obj, "sale_count", None)
+
+
+# ──────────────────────────────────────────────────────────────────
+# Return serializers (SubPhase 03.03)
+# ──────────────────────────────────────────────────────────────────
+
+class ReturnLineInputSerializer(serializers.Serializer):
+    sale_line_id = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class InitiateReturnSerializer(serializers.Serializer):
+    original_sale_id = serializers.UUIDField()
+    lines = ReturnLineInputSerializer(many=True)
+    refund_method = serializers.ChoiceField(choices=ReturnRefundMethod.choices)
+    restock_items = serializers.BooleanField(default=True)
+    reason = serializers.CharField(
+        max_length=200, required=False, allow_blank=True, default=""
+    )
+    card_reversal_reference = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
+    authorizing_manager_id = serializers.CharField()
+
+    def validate_lines(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "At least one return line is required."
+            )
+        return value
+
+    def validate(self, data):
+        if (
+            data.get("refund_method") == ReturnRefundMethod.CARD_REVERSAL
+            and not data.get("card_reversal_reference")
+        ):
+            raise serializers.ValidationError(
+                {"card_reversal_reference": "Required for CARD_REVERSAL refund method."}
+            )
+        return data
+
+
+class ReturnLineOutputSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReturnLine
+        fields = [
+            "id",
+            "original_sale_line_id",
+            "variant_id",
+            "product_name_snapshot",
+            "variant_description_snapshot",
+            "quantity",
+            "unit_price",
+            "line_refund_amount",
+            "is_restocked",
+            "created_at",
+        ]
+
+
+class ReturnSerializer(serializers.ModelSerializer):
+    lines = ReturnLineOutputSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Return
+        fields = [
+            "id",
+            "tenant_id",
+            "original_sale_id",
+            "initiated_by_id",
+            "authorized_by_id",
+            "refund_method",
+            "refund_amount",
+            "restock_items",
+            "reason",
+            "status",
+            "card_reversal_reference",
+            "created_at",
+            "lines",
+        ]

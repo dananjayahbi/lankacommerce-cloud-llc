@@ -9,6 +9,7 @@ from .views import (
     PINLoginView,
     ResetPasswordView,
     SetPINView,
+    VerifyManagerPINView,
     VerifyPINView,
 )
 
@@ -23,6 +24,7 @@ urlpatterns = [
     path("pin/", PINLoginView.as_view(), name="pin_login"),
     path("pin/set/", SetPINView.as_view(), name="pin_set"),
     path("pin/verify/", VerifyPINView.as_view(), name="pin_verify"),
+    path("verify-pin/", VerifyManagerPINView.as_view(), name="manager_pin_verify"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset_password"),
 ]

@@ -5,7 +5,7 @@
 
 import type { UserPayload } from "@/stores/authStore";
 
-export type PaymentMethod = "CASH" | "CARD" | "SPLIT";
+export type PaymentMethod = "CASH" | "CARD" | "SPLIT" | "EXCHANGE";
 export type PaymentLegMethod = "CASH" | "CARD";
 export type SaleStatus = "OPEN" | "COMPLETED" | "VOIDED";
 export type ShiftStatus = "OPEN" | "CLOSED";
@@ -139,6 +139,7 @@ export interface CreateSalePayload {
   card_reference_number?: string;
   card_amount?: number;
   queued_at?: string;
+  linked_return_id?: string | null;
 }
 
 
@@ -244,4 +245,57 @@ export interface CartItem {
   quantity: number;
   /** 0–100 line-level discount percentage, stored as string */
   discountPercent: string;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Returns & Store Credit types (SubPhase 03.03)
+// ─────────────────────────────────────────────────────────────────
+
+export type ReturnRefundMethod = "CASH" | "CARD_REVERSAL" | "STORE_CREDIT" | "EXCHANGE";
+export type ReturnStatus = "COMPLETED";
+
+export interface ReturnLine {
+  id: string;
+  original_sale_line_id: string;
+  variant_id: string;
+  product_name_snapshot: string;
+  variant_description_snapshot: string;
+  quantity: number;
+  unit_price: string;
+  line_refund_amount: string;
+  is_restocked: boolean;
+  created_at: string;
+}
+
+export interface Return {
+  id: string;
+  tenant_id: string;
+  original_sale_id: string;
+  initiated_by_id: string;
+  authorized_by_id: string;
+  refund_method: ReturnRefundMethod;
+  refund_amount: string;
+  restock_items: boolean;
+  reason: string;
+  status: ReturnStatus;
+  card_reversal_reference: string;
+  created_at: string;
+  lines: ReturnLine[];
+}
+
+export interface InitiateReturnPayload {
+  original_sale_id: string;
+  lines: Array<{ sale_line_id: string; quantity: number }>;
+  refund_method: ReturnRefundMethod;
+  restock_items: boolean;
+  reason: string;
+  card_reversal_reference?: string;
+  authorizing_manager_id: string;
+}
+
+export interface ReturnsListResponse {
+  results: Return[];
+  total: number;
+  page: number;
+  limit: number;
 }

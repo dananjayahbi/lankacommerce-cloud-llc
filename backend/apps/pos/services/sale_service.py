@@ -185,6 +185,7 @@ def create_sale(
     cash_received: Decimal | None = None,
     card_amount: Decimal | None = None,
     card_reference_number: str | None = None,
+    linked_return_id: Any = None,
 ) -> Sale:
     """Create a completed sale with atomic stock deduction and payment records.
 
@@ -281,6 +282,7 @@ def create_sale(
             authorizing_manager_id=authorizing_manager_id,
             status=SaleStatus.COMPLETED,
             completed_at=timezone.now(),
+            linked_return_id=linked_return_id or None,
         )
 
         # ── 8. Create SaleLine records ────────────────────────────

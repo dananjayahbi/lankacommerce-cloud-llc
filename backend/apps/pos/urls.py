@@ -42,4 +42,22 @@ urlpatterns = [
         views.ShiftCloseView.as_view(),
         name="shift-close",
     ),
+    path(
+        "shifts/<uuid:id>/z-report/",
+        views.ShiftZReportView.as_view(),
+        name="shift-z-report",
+    ),
+
+    # Returns
+    path("returns/", views.ReturnListCreateView.as_view(), name="return-list-create"),
+    path(
+        "returns/<uuid:id>/",
+        views.ReturnDetailView.as_view(),
+        name="return-detail",
+    ),
+    path(
+        "returns/<uuid:id>/receipt/",
+        views.ReturnReceiptView.as_view(),
+        name="return-receipt",
+    ),
 ]

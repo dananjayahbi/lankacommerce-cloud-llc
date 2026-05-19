@@ -30,16 +30,20 @@ from apps.pos.serializers import (
     CloseShiftSerializer,
     CreateSaleSerializer,
     HoldSaleSerializer,
+    InitiateReturnSerializer,
     OpenShiftSerializer,
+    ReturnSerializer,
     SaleSerializer,
     ShiftSerializer,
 )
 from apps.pos.services import sale_service, shift_service
+from apps.pos.services import return_service
 from apps.pos.services.whatsapp_service import (
     WhatsAppReceiptPayload,
     send_whatsapp_receipt_message,
 )
 from apps.pos.utils.receipt_renderer import build_thermal_receipt_html
+from apps.pos.utils.return_receipt_renderer import build_return_receipt_html
 from apps.tenants.models import Tenant
 
 logger = logging.getLogger(__name__)
@@ -137,6 +141,7 @@ class SaleListCreateView(APIView):
                 cash_received=data.get("cash_received"),
                 card_amount=data.get("card_amount"),
                 card_reference_number=data.get("card_reference_number"),
+                linked_return_id=data.get("linked_return_id"),
             )
         except NotFoundError as exc:
             return _error("NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND)
@@ -509,3 +514,190 @@ class SendReceiptView(APIView):
             {"success": result["success"], "error": result.get("error")},
             status=status.HTTP_200_OK,
         )
+
+
+# ──────────────────────────────────────────────────────────────────
+# POST /api/pos/returns/    GET /api/pos/returns/
+# ──────────────────────────────────────────────────────────────────
+
+class ReturnListCreateView(APIView):
+    """
+    POST — initiate a new return (requires SALES_REFUND + manager authorization).
+    GET  — list returns for the tenant (requires SALES_VIEW).
+    """
+
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated(), HasPermission(PERMISSIONS.SALES_VIEW)]
+        return [IsAuthenticated(), HasPermission(PERMISSIONS.SALES_REFUND)]
+
+    def get(self, request):
+        tenant_id = request.user.tenant_id
+        params = request.query_params
+        filters = {
+            "original_sale_id": params.get("original_sale_id"),
+            "initiated_by_id": params.get("initiated_by_id"),
+            "refund_method": params.get("refund_method"),
+            "from_date": params.get("from_date"),
+            "to_date": params.get("to_date"),
+            "page": params.get("page", 1),
+            "limit": params.get("limit", 25),
+        }
+        result = return_service.get_returns(tenant_id, filters)
+        return _ok(
+            {
+                "results": ReturnSerializer(result["data"], many=True).data,
+                "total": result["total"],
+                "page": result["page"],
+                "limit": result["limit"],
+            }
+        )
+
+    def post(self, request):
+        tenant_id = request.user.tenant_id
+        initiated_by_id = request.user.id
+
+        serializer = InitiateReturnSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _error(
+                "VALIDATION_ERROR",
+                str(serializer.errors),
+                status.HTTP_400_BAD_REQUEST,
+            )
+        data = serializer.validated_data
+
+        # Verify the authorizing manager exists and has MANAGER or SUPER_ADMIN role
+        from apps.accounts.models import CustomUser
+        auth_manager_id = data["authorizing_manager_id"]
+        try:
+            manager = CustomUser.objects.get(id=auth_manager_id, tenant_id=tenant_id)
+        except CustomUser.DoesNotExist:
+            return _error(
+                "NOT_FOUND",
+                "Authorizing manager not found.",
+                status.HTTP_404_NOT_FOUND,
+            )
+        if manager.role not in (UserRole.MANAGER, UserRole.SUPER_ADMIN):
+            return _error(
+                "FORBIDDEN",
+                "Authorizing user must be a MANAGER or SUPER_ADMIN.",
+                status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            return_record = return_service.initiate_return(
+                tenant_id=tenant_id,
+                input_data={
+                    "initiated_by_id": initiated_by_id,
+                    "authorized_by_id": auth_manager_id,
+                    "original_sale_id": str(data["original_sale_id"]),
+                    "lines": [
+                        {
+                            "sale_line_id": str(line["sale_line_id"]),
+                            "quantity": line["quantity"],
+                        }
+                        for line in data["lines"]
+                    ],
+                    "refund_method": data["refund_method"],
+                    "restock_items": data.get("restock_items", True),
+                    "reason": data.get("reason", ""),
+                    "card_reversal_reference": data.get("card_reversal_reference", ""),
+                },
+            )
+        except ValueError as exc:
+            return _error("VALIDATION_ERROR", str(exc), status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.exception("Return initiation failed. tenant_id=%s", tenant_id)
+            return _error(
+                "INTERNAL_ERROR",
+                "An unexpected error occurred. Please try again.",
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return _ok(ReturnSerializer(return_record).data, status.HTTP_201_CREATED)
+
+
+# ──────────────────────────────────────────────────────────────────
+# GET /api/pos/returns/{id}/
+# ──────────────────────────────────────────────────────────────────
+
+class ReturnDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [IsAuthenticated(), HasPermission(PERMISSIONS.SALES_VIEW)]
+
+    def get(self, request, id):
+        tenant_id = request.user.tenant_id
+        try:
+            return_record = return_service.get_return_by_id(tenant_id, id)
+        except Exception:
+            return _error("NOT_FOUND", "Return not found.", status.HTTP_404_NOT_FOUND)
+        return _ok(ReturnSerializer(return_record).data)
+
+
+# ──────────────────────────────────────────────────────────────────
+# GET /api/pos/returns/{id}/receipt/
+# ──────────────────────────────────────────────────────────────────
+
+class ReturnReceiptView(APIView):
+    """Return a self-contained 80 mm thermal return receipt HTML page."""
+
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get(self, request, id):
+        tenant_id = request.user.tenant_id
+        try:
+            return_record = return_service.get_return_by_id(tenant_id, id)
+        except Exception:
+            return HttpResponse(
+                "<html><body><p>Return receipt not found.</p></body></html>",
+                content_type="text/html",
+                status=404,
+            )
+
+        try:
+            tenant = Tenant.objects.get(pk=tenant_id)
+        except Tenant.DoesNotExist:
+            return HttpResponse(
+                "<html><body><p>Tenant not found.</p></body></html>",
+                content_type="text/html",
+                status=404,
+            )
+
+        html_string = build_return_receipt_html(return_record, tenant)
+        response = HttpResponse(html_string, content_type="text/html")
+        response["Cache-Control"] = "no-store, no-cache"
+        response["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src https://fonts.gstatic.com; "
+            "script-src 'unsafe-inline'"
+        )
+        return response
+
+
+# ──────────────────────────────────────────────────────────────────
+# GET /api/pos/shifts/{id}/z-report/
+# ──────────────────────────────────────────────────────────────────
+
+class ShiftZReportView(APIView):
+    """Return aggregated Z-Report data for a closed (or open) shift."""
+
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [IsAuthenticated(), HasPermission(PERMISSIONS.SALES_VIEW)]
+
+    def get(self, request, id):
+        tenant_id = request.user.tenant_id
+        try:
+            z_data = shift_service.build_z_report_data(tenant_id, id)
+        except Exception as exc:
+            return _error("NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND)
+        return _ok(z_data)

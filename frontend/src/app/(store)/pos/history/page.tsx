@@ -9,9 +9,11 @@ import {
   BanIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  RotateCcwIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SaleDetailModal } from "@/components/pos/SaleDetailModal";
+import { ReturnWizardSheet } from "@/components/pos/ReturnWizardSheet";
 import { useAuthStore } from "@/stores/authStore";
 import { useShiftContext } from "@/contexts/ShiftContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -76,6 +78,7 @@ function PaymentBadge({ method }: { method: PaymentMethod | null }) {
     CASH: "bg-[#22C55E] text-white",
     CARD: "bg-[#3B82F6] text-white",
     SPLIT: "bg-[#F97316] text-white",
+    EXCHANGE: "bg-[#8B5CF6] text-white",
   };
   return (
     <span className={`rounded-full px-2 py-0.5 font-inter text-[11px] font-medium ${styles[method]}`}>
@@ -115,6 +118,8 @@ export default function SaleHistoryPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [returnSaleId, setReturnSaleId] = useState<string | null>(null);
+  const [returnSheetOpen, setReturnSheetOpen] = useState(false);
 
   // Debounce date inputs
   const dateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -222,6 +227,12 @@ export default function SaleHistoryPage() {
               {user.email}
             </span>
           )}
+          <Link
+            href="/pos/returns"
+            className="rounded-md bg-[#F97316]/10 px-3 py-1.5 font-inter text-[12px] font-medium text-[#F97316] hover:bg-[#F97316]/20"
+          >
+            Return History →
+          </Link>
         </div>
       </div>
 
@@ -347,8 +358,7 @@ export default function SaleHistoryPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {isLoading &&
+              <tbody>                {isLoading &&
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-[#E2E8F0]">
                       {Array.from({ length: 10 }).map((__, j) => (
@@ -376,6 +386,14 @@ export default function SaleHistoryPage() {
                       can(PERMISSIONS.SALES_VOID) &&
                       sale.status === "COMPLETED" &&
                       sale.shift_id === shift.id;
+
+                    const saleAgeDays =
+                      (new Date().getTime() - new Date(sale.created_at).getTime()) /
+                      (1000 * 60 * 60 * 24);
+                    const canReturn =
+                      can(PERMISSIONS.SALES_REFUND) &&
+                      sale.status === "COMPLETED" &&
+                      saleAgeDays <= 30;
 
                     return (
                       <tr
@@ -482,6 +500,20 @@ export default function SaleHistoryPage() {
                                 Void
                               </button>
                             )}
+                            {canReturn && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReturnSaleId(sale.id);
+                                  setReturnSheetOpen(true);
+                                }}
+                                className="flex items-center gap-1 font-inter text-[12px] text-[#F97316] hover:opacity-80"
+                                title="Return items"
+                              >
+                                <RotateCcwIcon size={14} />
+                                Return
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -530,6 +562,18 @@ export default function SaleHistoryPage() {
           onClose={() => {
             setDetailOpen(false);
             setSelectedSaleId(null);
+          }}
+        />
+      )}
+
+      {/* Return wizard */}
+      {returnSaleId && (
+        <ReturnWizardSheet
+          saleId={returnSaleId}
+          open={returnSheetOpen}
+          onOpenChange={(o) => {
+            setReturnSheetOpen(o);
+            if (!o) setReturnSaleId(null);
           }}
         />
       )}

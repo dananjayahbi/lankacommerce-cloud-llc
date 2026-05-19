@@ -63,6 +63,10 @@ export function CartPanel() {
   const cartDiscountAmount = useCartStore((s) => s.cartDiscountAmount);
   const cartDiscountPercent = useCartStore((s) => s.cartDiscountPercent);
   const authorizingManagerId = useCartStore((s) => s.authorizingManagerId);
+  const linkedReturnId = useCartStore((s) => s.linkedReturnId);
+  const exchangeCredit = useCartStore((s) => s.exchangeCredit);
+  const exchangeReturnRef = useCartStore((s) => s.exchangeReturnRef);
+  const clearExchangeCredit = useCartStore((s) => s.clearExchangeCredit);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
   const getCartDiscountEffective = useCartStore((s) => s.getCartDiscountEffective);
   const getTotal = useCartStore((s) => s.getTotal);
@@ -111,6 +115,10 @@ export function CartPanel() {
   const taxBase = subtotal.sub(cartDiscount);
   const taxAmount = taxBase.mul(DISPLAY_TAX_RATE_PERCENT).div(100).toDecimalPlaces(2);
   const grandTotal = getTotal().add(taxAmount);
+  const exchangeCreditDecimal = exchangeCredit ? new Decimal(exchangeCredit) : new Decimal(0);
+  const netPayable = grandTotal.sub(exchangeCreditDecimal).gt(0)
+    ? grandTotal.sub(exchangeCreditDecimal)
+    : new Decimal(0);
 
   const hasDiscount = totalDiscount.gt(0);
   const hasPctDiscount = new Decimal(cartDiscountPercent).gt(0);
@@ -159,6 +167,9 @@ export function CartPanel() {
     }
     if (authorizingManagerId) {
       base.authorizing_manager_id = authorizingManagerId;
+    }
+    if (linkedReturnId) {
+      (base as CreateSalePayload).linked_return_id = linkedReturnId;
     }
     return base;
   }
@@ -348,20 +359,80 @@ export function CartPanel() {
             {formatCurrency(grandTotal)}
           </span>
         </div>
+
+        {/* Exchange credit banner */}
+        {exchangeCredit && exchangeCreditDecimal.gt(0) && (
+          <div className="mt-2 rounded-lg border border-green-200 bg-green-50 p-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-inter text-[12px] font-semibold text-green-800">
+                  Exchange Credit Applied
+                </p>
+                <p className="font-inter text-[11px] text-green-600">
+                  Ref: {(exchangeReturnRef ?? "").slice(0, 8).toUpperCase()}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-[13px] font-bold text-green-700">
+                  −{formatCurrency(exchangeCreditDecimal)}
+                </p>
+                <button
+                  type="button"
+                  onClick={clearExchangeCredit}
+                  className="font-inter text-[10px] text-green-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+            {netPayable.eq(0) && (
+              <p className="mt-1.5 font-inter text-[11px] font-medium text-green-700">
+                ✓ No payment due — exchange credit covers the full amount.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Action buttons ──────────────────────────────────────── */}
       <div className="shrink-0 space-y-2 border-t border-[#E2E8F0] px-4 pb-4 pt-3">
         <HoldSaleButton />
 
-        <button
-          type="button"
-          disabled={isEmpty}
-          onClick={() => setMethodSheetOpen(true)}
-          className="flex h-12 w-full items-center justify-center rounded-lg bg-[#1B2B3A] font-inter text-[16px] font-bold text-white hover:bg-[#2C3E50] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Charge / Pay — {formatCurrency(grandTotal)}
-        </button>
+        {/* Zero-net exchange path */}
+        {exchangeCredit && netPayable.eq(0) ? (
+          <button
+            type="button"
+            disabled={isEmpty || isSubmitting}
+            onClick={async () => {
+              if (!accessToken) return;
+              setIsSubmitting(true);
+              try {
+                const payload: CreateSalePayload = {
+                  ...buildBasePayload(),
+                  payment_method: "EXCHANGE" as PaymentMethod,
+                };
+                const sale = await submitSale(payload, accessToken);
+                await handleSaleSuccess(sale, null);
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Exchange sale failed");
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            className="flex h-12 w-full items-center justify-center rounded-lg bg-green-600 font-inter text-[16px] font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isSubmitting ? "Processing…" : "Complete Exchange (No Payment Due)"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={isEmpty}
+            onClick={() => setMethodSheetOpen(true)}
+            className="flex h-12 w-full items-center justify-center rounded-lg bg-[#1B2B3A] font-inter text-[16px] font-bold text-white hover:bg-[#2C3E50] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Charge / Pay — {formatCurrency(exchangeCredit ? netPayable : grandTotal)}
+          </button>
+        )}
       </div>
 
       <RetrieveHeldSalesSheet open={retrieveOpen} onOpenChange={setRetrieveOpen} />

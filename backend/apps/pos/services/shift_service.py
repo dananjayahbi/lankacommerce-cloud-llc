@@ -310,3 +310,154 @@ def get_shifts(
     offset = (page - 1) * limit
 
     return list(qs[offset: offset + limit]), total
+
+
+# ══════════════════════════════════════════════════════════════════
+# build_z_report_data
+# ══════════════════════════════════════════════════════════════════
+
+def build_z_report_data(tenant_id: Any, shift_id: Any) -> dict:
+    """Aggregate all sales and returns for a shift and return a Z-Report dict."""
+    from apps.pos.models import Return, ReturnRefundMethod, SaleLine
+
+    try:
+        shift = Shift.objects.select_related("cashier", "closure").get(
+            pk=shift_id, tenant_id=tenant_id
+        )
+    except Shift.DoesNotExist as exc:
+        raise NotFoundError("Shift not found.") from exc
+
+    closure = getattr(shift, "closure", None)
+
+    # ── Sales aggregates ───────────────────────────────────────────
+    completed_sales = Sale.objects.filter(
+        shift_id=shift_id, status=SaleStatus.COMPLETED
+    )
+    voided_sales_count = Sale.objects.filter(
+        shift_id=shift_id, status=SaleStatus.VOIDED
+    ).count()
+
+    total_sales_count = completed_sales.count()
+    total_sales_amount = completed_sales.aggregate(
+        s=Sum("total_amount")
+    )["s"] or Decimal("0")
+    total_discount_amount = completed_sales.aggregate(
+        s=Sum("cart_discount_amount")
+    )["s"] or Decimal("0")
+
+    # Payment method breakdown (via Payment model related to Sale)
+    from apps.pos.models import Payment
+
+    cash_sales = Payment.objects.filter(
+        sale__shift_id=shift_id,
+        sale__status=SaleStatus.COMPLETED,
+        method=PaymentMethod.CASH,
+    ).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+
+    card_sales = Payment.objects.filter(
+        sale__shift_id=shift_id,
+        sale__status=SaleStatus.COMPLETED,
+        method=PaymentMethod.CARD,
+    ).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+
+    # ── Returns aggregates ─────────────────────────────────────────
+    # Returns within the shift window (opened_at to closed_at or now)
+    window_start = shift.opened_at
+    window_end = shift.closed_at if shift.closed_at else timezone.now()
+
+    returns_qs = Return.objects.filter(
+        tenant_id=tenant_id,
+        created_at__gte=window_start,
+        created_at__lte=window_end,
+    )
+
+    total_returns_count = returns_qs.count()
+    total_refund_amount = returns_qs.aggregate(
+        s=Sum("refund_amount")
+    )["s"] or Decimal("0")
+    cash_refund_amount = returns_qs.filter(
+        refund_method=ReturnRefundMethod.CASH
+    ).aggregate(s=Sum("refund_amount"))["s"] or Decimal("0")
+    card_refund_amount = returns_qs.filter(
+        refund_method=ReturnRefundMethod.CARD_REVERSAL
+    ).aggregate(s=Sum("refund_amount"))["s"] or Decimal("0")
+    credit_refund_amount = returns_qs.filter(
+        refund_method=ReturnRefundMethod.STORE_CREDIT
+    ).aggregate(s=Sum("refund_amount"))["s"] or Decimal("0")
+    exchange_count = returns_qs.filter(
+        refund_method=ReturnRefundMethod.EXCHANGE
+    ).count()
+
+    # ── Cash reconciliation ────────────────────────────────────────
+    opening_float = Decimal(str(shift.opening_cash_float or "0"))
+    expected_cash = opening_float + Decimal(str(cash_sales)) - Decimal(str(cash_refund_amount))
+
+    actual_cash = None
+    cash_difference = None
+    if closure and closure.closing_cash_count is not None:
+        actual_cash = Decimal(str(closure.closing_cash_count))
+        cash_difference = actual_cash - expected_cash
+
+    # ── Top products sold ──────────────────────────────────────────
+    top_products = list(
+        SaleLine.objects.filter(
+            sale__shift_id=shift_id,
+            sale__status=SaleStatus.COMPLETED,
+        )
+        .values("product_name_snapshot", "variant_description_snapshot")
+        .annotate(total_qty=Sum("quantity"), total_revenue=Sum("line_total"))
+        .order_by("-total_qty")[:10]
+    )
+    # Ensure Decimal values are string for JSON serialisation
+    top_products_clean = [
+        {
+            "product_name_snapshot": p["product_name_snapshot"],
+            "variant_description_snapshot": p["variant_description_snapshot"],
+            "total_qty": int(p["total_qty"] or 0),
+            "total_revenue": str(
+                Decimal(str(p["total_revenue"] or "0")).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+            ),
+        }
+        for p in top_products
+    ]
+
+    # ── Cashier name ───────────────────────────────────────────────
+    cashier = shift.cashier
+    cashier_name = (
+        getattr(cashier, "get_full_name", lambda: "")()
+        or getattr(cashier, "email", "Cashier")
+    ) if cashier else "Cashier"
+
+    def _d(val) -> str:
+        return str(Decimal(str(val or "0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+    return {
+        "shift_id": str(shift.id),
+        "shift_status": shift.status,
+        "cashier_name": cashier_name,
+        "opened_at": shift.opened_at.isoformat() if shift.opened_at else None,
+        "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
+        # Sales
+        "total_sales_count": total_sales_count,
+        "total_sales_amount": _d(total_sales_amount),
+        "cash_sales_amount": _d(cash_sales),
+        "card_sales_amount": _d(card_sales),
+        "voided_sales_count": voided_sales_count,
+        "total_discount_amount": _d(total_discount_amount),
+        # Returns
+        "total_returns_count": total_returns_count,
+        "total_refund_amount": _d(total_refund_amount),
+        "cash_refund_amount": _d(cash_refund_amount),
+        "card_refund_amount": _d(card_refund_amount),
+        "credit_refund_amount": _d(credit_refund_amount),
+        "exchange_count": exchange_count,
+        # Cash reconciliation
+        "opening_float": _d(opening_float),
+        "expected_cash_in_drawer": _d(expected_cash),
+        "actual_cash_counted": _d(actual_cash) if actual_cash is not None else None,
+        "cash_difference": _d(cash_difference) if cash_difference is not None else None,
+        # Top products
+        "top_products": top_products_clean,
+    }
