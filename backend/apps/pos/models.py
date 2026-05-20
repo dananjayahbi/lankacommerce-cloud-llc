@@ -96,6 +96,24 @@ class Sale(models.Model):
     voided_at = models.DateTimeField(null=True, blank=True)
     whatsapp_receipt_sent_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    # Phase 04 — CRM linkage
+    customer = models.ForeignKey(
+        "crm.Customer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sales",
+    )
+    salesperson = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sales_as_salesperson",
+    )
+    applied_store_credit = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # Populated when this sale is the replacement cart in an exchange return

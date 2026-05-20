@@ -186,6 +186,8 @@ def create_sale(
     card_amount: Decimal | None = None,
     card_reference_number: str | None = None,
     linked_return_id: Any = None,
+    customer_id: Any = None,
+    applied_store_credit: Decimal = Decimal("0.00"),
 ) -> Sale:
     """Create a completed sale with atomic stock deduction and payment records.
 
@@ -283,6 +285,8 @@ def create_sale(
             status=SaleStatus.COMPLETED,
             completed_at=timezone.now(),
             linked_return_id=linked_return_id or None,
+            customer_id=customer_id or None,
+            applied_store_credit=applied_store_credit,
         )
 
         # ── 8. Create SaleLine records ────────────────────────────
@@ -331,6 +335,13 @@ def create_sale(
                 reason=StockMovementReason.SALE,
                 reference_id=sale.id,
             )
+
+        # ── 11. CRM: redeem credit and record spend ───────────────
+        if customer_id is not None:
+            from apps.crm.services import customer_service as _cs
+            if applied_store_credit > Decimal("0.00"):
+                _cs.redeem_credit(tenant_id, customer_id, applied_store_credit)
+            _cs.add_to_spend_total(tenant_id, customer_id, total_amount)
 
     # Return fully populated sale object
     return (

@@ -241,3 +241,58 @@ def send_whatsapp_receipt_message(
             "success": False,
             "error": "WhatsApp dispatch failed due to a network error.",
         }
+
+
+# ──────────────────────────────────────────────────────────────────
+# send_whatsapp_text_message  (plain text, for CRM birthday/broadcast)
+# ──────────────────────────────────────────────────────────────────
+
+def send_whatsapp_text_message(phone: str, message: str) -> dict:
+    """Send a plain text WhatsApp message.
+
+    Used by the CRM birthday greeter and broadcast sender.
+    Returns ``{"success": True}`` or ``{"success": False, "error": "..."}``.
+    Never raises.
+    """
+    try:
+        e164_phone = format_phone_number(phone)
+    except ValueError as exc:
+        return {"success": False, "error": f"Invalid phone number: {exc}"}
+
+    phone_number_id = getattr(settings, "WHATSAPP_PHONE_NUMBER_ID", None)
+    access_token = getattr(settings, "WHATSAPP_ACCESS_TOKEN", None)
+
+    if not all([phone_number_id, access_token]):
+        return {
+            "success": False,
+            "error": "WhatsApp is not configured. Missing environment variables.",
+        }
+
+    url = f"{_META_GRAPH_BASE}/{phone_number_id}/messages"
+    body = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": e164_phone,
+        "type": "text",
+        "text": {"body": message},
+    }
+    body_bytes = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body_bytes,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {access_token}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 201):
+                return {"success": True}
+            return {"success": False, "error": f"Meta API returned status {resp.status}"}
+    except urllib.error.HTTPError as exc:
+        return {"success": False, "error": f"Meta API HTTP {exc.code}"}
+    except (urllib.error.URLError, OSError) as exc:
+        logger.error("WhatsApp text dispatch network error: %s", exc)
+        return {"success": False, "error": "Network error sending WhatsApp message."}

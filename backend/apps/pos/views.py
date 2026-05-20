@@ -11,8 +11,7 @@ Response envelope:
 """
 
 import logging
-
-from django.conf import settings as django_settings
+from decimal import Decimal
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
@@ -110,6 +109,20 @@ class SaleListCreateView(APIView):
             )
         data = serializer.validated_data
 
+        # ── CRM: pre-flight credit check (outside atomic block) ───
+        customer_id = data.get("customer_id")
+        requested_credit = data.get("applied_store_credit", Decimal("0.00"))
+        valid_credit = Decimal("0.00")
+        if customer_id is not None and requested_credit > Decimal("0.00"):
+            try:
+                from apps.crm.services import customer_service as _cs
+                credit_result = _cs.apply_credit_to_cart(
+                    tenant_id, customer_id, requested_credit
+                )
+                valid_credit = credit_result["valid_amount"]
+            except Exception:
+                valid_credit = Decimal("0.00")
+
         # ── Staleness check for offline-queued sales ──────────────
         queued_at = data.get("queued_at")
         if queued_at is not None:
@@ -142,6 +155,8 @@ class SaleListCreateView(APIView):
                 card_amount=data.get("card_amount"),
                 card_reference_number=data.get("card_reference_number"),
                 linked_return_id=data.get("linked_return_id"),
+                customer_id=customer_id,
+                applied_store_credit=valid_credit,
             )
         except NotFoundError as exc:
             return _error("NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND)

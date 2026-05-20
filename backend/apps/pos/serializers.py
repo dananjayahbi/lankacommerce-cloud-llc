@@ -73,6 +73,11 @@ class CreateSaleSerializer(serializers.Serializer):
     queued_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
     # Exchange: ID of the Return this sale is fulfilling
     linked_return_id = serializers.UUIDField(required=False, allow_null=True, default=None)
+    # CRM linkage
+    customer_id = serializers.UUIDField(required=False, allow_null=True, default=None)
+    applied_store_credit = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, default=Decimal("0.00")
+    )
 
     def validate_lines(self, value):
         if not value:

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { ArchiveRestore, ShoppingCart, Trash2 } from "lucide-react";
+import { ArchiveRestore, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
@@ -17,6 +17,7 @@ import { CashPaymentModal } from "./CashPaymentModal";
 import { CardPaymentModal } from "./CardPaymentModal";
 import { SplitPaymentModal } from "./SplitPaymentModal";
 import { ReceiptPreviewDialog } from "./ReceiptPreviewDialog";
+import { CustomerSearchDropdown } from "@/components/customers/CustomerSearchDropdown";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { DISPLAY_TAX_RATE_PERCENT } from "@/config/pos.config";
 import type { PaymentMethod, Sale, CreateSalePayload } from "@/types/pos";
@@ -67,6 +68,14 @@ export function CartPanel() {
   const exchangeCredit = useCartStore((s) => s.exchangeCredit);
   const exchangeReturnRef = useCartStore((s) => s.exchangeReturnRef);
   const clearExchangeCredit = useCartStore((s) => s.clearExchangeCredit);
+  // Customer linking
+  const linked_customer_id = useCartStore((s) => s.linked_customer_id);
+  const linked_customer_name = useCartStore((s) => s.linked_customer_name);
+  const linked_customer_credit_balance = useCartStore((s) => s.linked_customer_credit_balance);
+  const applied_store_credit = useCartStore((s) => s.applied_store_credit);
+  const linkCustomer = useCartStore((s) => s.linkCustomer);
+  const unlinkCustomer = useCartStore((s) => s.unlinkCustomer);
+  const setAppliedStoreCredit = useCartStore((s) => s.setAppliedStoreCredit);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
   const getCartDiscountEffective = useCartStore((s) => s.getCartDiscountEffective);
   const getTotal = useCartStore((s) => s.getTotal);
@@ -116,8 +125,9 @@ export function CartPanel() {
   const taxAmount = taxBase.mul(DISPLAY_TAX_RATE_PERCENT).div(100).toDecimalPlaces(2);
   const grandTotal = getTotal().add(taxAmount);
   const exchangeCreditDecimal = exchangeCredit ? new Decimal(exchangeCredit) : new Decimal(0);
-  const netPayable = grandTotal.sub(exchangeCreditDecimal).gt(0)
-    ? grandTotal.sub(exchangeCreditDecimal)
+  const storeCreditDecimal = new Decimal(applied_store_credit);
+  const netPayable = grandTotal.sub(exchangeCreditDecimal).sub(storeCreditDecimal).gt(0)
+    ? grandTotal.sub(exchangeCreditDecimal).sub(storeCreditDecimal)
     : new Decimal(0);
 
   const hasDiscount = totalDiscount.gt(0);
@@ -170,6 +180,12 @@ export function CartPanel() {
     }
     if (linkedReturnId) {
       (base as CreateSalePayload).linked_return_id = linkedReturnId;
+    }
+    if (linked_customer_id) {
+      (base as CreateSalePayload).customer_id = linked_customer_id;
+      if (storeCreditDecimal.gt(0)) {
+        (base as CreateSalePayload).applied_store_credit = applied_store_credit;
+      }
     }
     return base;
   }
@@ -298,6 +314,55 @@ export function CartPanel() {
 
       {/* ── Scrollable middle section ───────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
+        {/* Customer linking section */}
+        <div className="px-4 pt-3 pb-3 border-b border-[#E2E8F0]">
+          {linked_customer_id === null ? (
+            <CustomerSearchDropdown
+              onSelect={(c) => linkCustomer(c.id, c.name, c.credit_balance)}
+              onClear={unlinkCustomer}
+            />
+          ) : (
+            <div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-inter text-sm font-medium text-[#1B2B3A]">{linked_customer_name}</p>
+                  {linked_customer_credit_balance !== null && new Decimal(linked_customer_credit_balance).gt(0) && (
+                    <p className="text-xs text-[#64748B]">Store Credit: Rs. {new Decimal(linked_customer_credit_balance).toFixed(2)}</p>
+                  )}
+                </div>
+                <button type="button" onClick={unlinkCustomer} className="p-1 rounded hover:bg-[#F1F5F9]">
+                  <X size={14} className="text-[#64748B]" />
+                </button>
+              </div>
+              {/* Store credit toggle */}
+              {linked_customer_credit_balance !== null && new Decimal(linked_customer_credit_balance).gt(0) && (
+                <div className="mt-2 flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[#1B2B3A]">Use Store Credit</p>
+                    <p className="text-xs text-[#64748B]">Rs. {new Decimal(linked_customer_credit_balance).toFixed(2)} available</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 accent-[#F97316]"
+                    checked={storeCreditDecimal.gt(0)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const cartTotal = grandTotal;
+                        const creditToApply = Decimal.min(
+                          new Decimal(linked_customer_credit_balance),
+                          cartTotal,
+                        ).toFixed(2);
+                        setAppliedStoreCredit(creditToApply);
+                      } else {
+                        setAppliedStoreCredit("0");
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {isEmpty ? (
           <div className="flex h-full flex-col items-center justify-center py-12 text-center">
             <ShoppingCart size={48} className="mb-3 text-[#CBD5E1]" />
@@ -390,6 +455,16 @@ export function CartPanel() {
                 ✓ No payment due — exchange credit covers the full amount.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Store credit applied */}
+        {storeCreditDecimal.gt(0) && (
+          <div className="mt-2 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+            <p className="font-inter text-[12px] font-semibold text-green-800">Store Credit Applied</p>
+            <p className="font-mono text-[13px] font-bold text-green-700">
+              −{formatCurrency(storeCreditDecimal)}
+            </p>
           </div>
         )}
       </div>

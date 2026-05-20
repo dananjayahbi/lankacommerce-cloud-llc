@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.catalog",
     "apps.notifications",
     "apps.pos",
+    "apps.crm",
 ]
 
 MIDDLEWARE = [

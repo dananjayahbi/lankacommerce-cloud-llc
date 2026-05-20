@@ -23,6 +23,12 @@ interface CartState {
   /** Human-readable reference for the exchange (return short-ID) */
   exchangeReturnRef: string | null;
 
+  // Customer linking (CRM)
+  linked_customer_id: string | null;
+  linked_customer_name: string | null;
+  linked_customer_credit_balance: string | null;
+  applied_store_credit: string;
+
   // Computed derived values
   getSubtotal: () => Decimal;
   getCartDiscountEffective: () => Decimal;
@@ -48,6 +54,9 @@ interface CartState {
     cartDiscountPercent: string,
     authorizingManagerId: string | null,
   ) => void;
+  linkCustomer: (id: string, name: string, creditBalance: string) => void;
+  unlinkCustomer: () => void;
+  setAppliedStoreCredit: (amount: string) => void;
 }
 
 export const useCartStore = create<CartState>()((set, get) => ({
@@ -60,6 +69,10 @@ export const useCartStore = create<CartState>()((set, get) => ({
   linkedReturnId: null,
   exchangeCredit: null,
   exchangeReturnRef: null,
+  linked_customer_id: null,
+  linked_customer_name: null,
+  linked_customer_credit_balance: null,
+  applied_store_credit: "0",
 
   getSubtotal: () => {
     const { items } = get();
@@ -175,6 +188,10 @@ export const useCartStore = create<CartState>()((set, get) => ({
       linkedReturnId: null,
       exchangeCredit: null,
       exchangeReturnRef: null,
+      linked_customer_id: null,
+      linked_customer_name: null,
+      linked_customer_credit_balance: null,
+      applied_store_credit: "0",
     });
   },
 
@@ -201,6 +218,32 @@ export const useCartStore = create<CartState>()((set, get) => ({
       linkedReturnId: null,
       exchangeCredit: null,
       exchangeReturnRef: null,
+      linked_customer_id: null,
+      linked_customer_name: null,
+      linked_customer_credit_balance: null,
+      applied_store_credit: "0",
     });
+  },
+
+  linkCustomer: (id, name, creditBalance) => {
+    set({
+      linked_customer_id: id,
+      linked_customer_name: name,
+      linked_customer_credit_balance: creditBalance,
+      applied_store_credit: "0",
+    });
+  },
+
+  unlinkCustomer: () => {
+    set({
+      linked_customer_id: null,
+      linked_customer_name: null,
+      linked_customer_credit_balance: null,
+      applied_store_credit: "0",
+    });
+  },
+
+  setAppliedStoreCredit: (amount) => {
+    set({ applied_store_credit: amount });
   },
 }));
