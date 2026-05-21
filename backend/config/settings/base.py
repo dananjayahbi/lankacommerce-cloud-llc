@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     "apps.crm",
     "apps.hr",
     "apps.promotions",
+    "apps.audit",
+    "apps.hardware",
 ]
 
 MIDDLEWARE = [

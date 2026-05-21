@@ -51,6 +51,7 @@ from apps.hr.services.commission_service import (
     create_commission_record,
     create_negative_commission_record,
 )
+from apps.audit.services.audit_service import create_audit_log, AUDIT_ACTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +197,38 @@ class SaleListCreateView(APIView):
                 str(_exc),
             )
 
+        # ── Audit side-effect ──────────────────────────────────────
+        try:
+            create_audit_log(
+                tenant_id=sale.tenant_id,
+                user_id=cashier_id,
+                action=AUDIT_ACTIONS["SALE_COMPLETED"],
+                entity_type="sale",
+                entity_id=str(sale.id),
+                new_values={
+                    "total": str(sale.total_amount),
+                    "payment_method": sale.payment_method,
+                },
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            logger.warning("Audit log failed for SALE_COMPLETED on sale %s", sale.id, exc_info=True)
+
+        # ── Cash drawer kick ───────────────────────────────────────
+        if sale.payment_method == "CASH":
+            try:
+                from apps.tenants.models import Tenant as _Tenant
+                _tenant = _Tenant.objects.filter(id=sale.tenant_id).first()
+                if _tenant:
+                    _hw = _tenant.settings.get("hardware", {})
+                    if _hw.get("printer_type"):
+                        from apps.hardware.services.cash_drawer_service import kick_cash_drawer
+                        kick_cash_drawer(_hw)
+            except Exception:
+                pass
+
         return _ok(SaleSerializer(sale).data, status.HTTP_201_CREATED)
 
 
@@ -237,6 +270,21 @@ class SaleVoidView(APIView):
             return _error("NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND)
         except ConflictError as exc:
             return _error("CONFLICT", str(exc), status.HTTP_409_CONFLICT)
+        # ── Audit side-effect ──────────────────────────────────────
+        try:
+            create_audit_log(
+                tenant_id=request.user.tenant_id,
+                user_id=request.user.id,
+                action=AUDIT_ACTIONS["SALE_VOIDED"],
+                entity_type="sale",
+                entity_id=str(sale.id),
+                new_values={"voided_at": timezone.now().isoformat()},
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            logger.warning("Audit log failed for SALE_VOIDED on sale %s", sale.id, exc_info=True)
         return _ok(SaleSerializer(sale).data)
 
 
@@ -245,8 +293,6 @@ class SaleVoidView(APIView):
 # ──────────────────────────────────────────────────────────────────
 
 class SaleHoldView(APIView):
-    """Create a held (OPEN) sale — no stock deduction, no payment_method."""
-
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
@@ -453,11 +499,25 @@ class ShiftCloseView(APIView):
             return _error("CONFLICT", str(exc), status.HTTP_409_CONFLICT)
         except PermissionDeniedError as exc:
             return _error("FORBIDDEN", str(exc), status.HTTP_403_FORBIDDEN)
+        # ── Audit side-effect ──────────────────────────────────────
+        try:
+            create_audit_log(
+                tenant_id=tenant_id,
+                user_id=actor_id,
+                action=AUDIT_ACTIONS["SHIFT_CLOSED"],
+                entity_type="shift",
+                entity_id=str(shift.id),
+                new_values={
+                    "closed_at": timezone.now().isoformat(),
+                    "actual_cash": str(getattr(shift, "actual_cash", "")),
+                },
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            logger.warning("Audit log failed for SHIFT_CLOSED on shift %s", shift.id, exc_info=True)
         return _ok(ShiftSerializer(shift).data)
-
-
-# ──────────────────────────────────────────────────────────────────
-# GET /api/pos/sales/{id}/receipt/
 # ──────────────────────────────────────────────────────────────────
 
 class SaleReceiptView(APIView):
@@ -701,6 +761,38 @@ class ReturnListCreateView(APIView):
                 str(_exc),
             )
 
+        # ── Audit side-effect ──────────────────────────────────────
+        try:
+            create_audit_log(
+                tenant_id=tenant_id,
+                user_id=initiated_by_id,
+                action=AUDIT_ACTIONS["RETURN_COMPLETED"],
+                entity_type="return",
+                entity_id=str(return_record.id),
+                new_values={
+                    "refund_amount": str(getattr(return_record, "total_refund_amount", "")),
+                    "refund_method": data["refund_method"],
+                },
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            logger.warning("Audit log failed for RETURN_COMPLETED on return %s", return_record.id, exc_info=True)
+
+        # ── Cash drawer kick ───────────────────────────────────────
+        if data.get("refund_method") == "CASH":
+            try:
+                from apps.tenants.models import Tenant as _Tenant
+                _tenant = _Tenant.objects.filter(id=tenant_id).first()
+                if _tenant:
+                    _hw = _tenant.settings.get("hardware", {})
+                    if _hw.get("printer_type"):
+                        from apps.hardware.services.cash_drawer_service import kick_cash_drawer
+                        kick_cash_drawer(_hw)
+            except Exception:
+                pass
+
         return _ok(ReturnSerializer(return_record).data, status.HTTP_201_CREATED)
 
 
@@ -899,6 +991,21 @@ class ExpenseListCreateView(APIView):
         )
         expense.refresh_from_db()
         expense_data = Expense.objects.select_related("recorded_by").get(pk=expense.pk)
+        # ── Audit side-effect ──────────────────────────────────────
+        try:
+            create_audit_log(
+                tenant_id=request.user.tenant_id,
+                user_id=request.user.id,
+                action=AUDIT_ACTIONS["EXPENSE_CREATED"],
+                entity_type="expense",
+                entity_id=str(expense.id),
+                new_values={"amount": str(expense.amount), "category": expense.category},
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            logger.warning("Audit log failed for EXPENSE_CREATED on expense %s", expense.id, exc_info=True)
         return _ok(_serialize_expense(expense_data), status.HTTP_201_CREATED)
 
 
@@ -1111,4 +1218,97 @@ class CashFlowView(APIView):
                 "net_movement": str(net_movement),
             },
             "net_cash_flow": str(net_cash_flow),
+        })
+
+
+# POST /api/pos/shifts/{id}/cash-movements/
+# GET  /api/pos/shifts/{id}/cash-movements/
+class ShiftCashMovementView(APIView):
+    """List and create cash movements for a shift."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def _get_shift(self, request, shift_id):
+        from apps.pos.models import Shift
+        try:
+            return Shift.objects.get(id=shift_id, tenant_id=request.user.tenant_id)
+        except Shift.DoesNotExist:
+            return None
+
+    def get(self, request, id):
+        def _ok(data): return Response({"success": True, "data": data})
+        def _error(msg, code=400, err_code=None):
+            return Response({"success": False, "error": {"code": err_code or "ERROR", "message": msg}}, status=code)
+
+        shift = self._get_shift(request, id)
+        if shift is None:
+            return _error("Shift not found.", 404, "NOT_FOUND")
+
+        from apps.pos.models import CashMovement
+        movements = CashMovement.objects.filter(shift_id=id).order_by("created_at")
+        data = [
+            {
+                "id": str(m.id),
+                "shift_id": str(m.shift_id),
+                "type": m.type,
+                "amount": str(m.amount),
+                "reason": m.reason,
+                "authorized_by_id": str(m.authorized_by_id) if m.authorized_by_id else None,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in movements
+        ]
+        return _ok(data)
+
+    def post(self, request, id):
+        def _ok(data, status_code=201): return Response({"success": True, "data": data}, status=status_code)
+        def _error(msg, code=400, err_code=None):
+            return Response({"success": False, "error": {"code": err_code or "ERROR", "message": msg}}, status=code)
+
+        shift = self._get_shift(request, id)
+        if shift is None:
+            return _error("Shift not found.", 404, "NOT_FOUND")
+
+        if shift.status != "OPEN":
+            return _error("Cannot create cash movements on a closed shift.", 409, "SHIFT_CLOSED")
+
+        movement_type = request.data.get("type", "")
+        from apps.pos.models import CashMovementType
+        if movement_type not in (CashMovementType.PETTY_CASH_OUT, CashMovementType.MANUAL_IN):
+            return _error("type must be PETTY_CASH_OUT or MANUAL_IN.", 400, "INVALID_TYPE")
+
+        try:
+            amount = Decimal(str(request.data.get("amount", "0")))
+        except Exception:
+            return _error("Invalid amount.", 400, "INVALID_AMOUNT")
+
+        if amount <= Decimal("0"):
+            return _error("Amount must be greater than zero.", 400, "INVALID_AMOUNT")
+        if amount > Decimal("10000"):
+            return _error("Amount cannot exceed Rs. 10,000.", 400, "AMOUNT_EXCEEDS_LIMIT")
+
+        reason = str(request.data.get("reason", "")).strip()
+        if not reason:
+            return _error("Reason is required.", 400, "REASON_REQUIRED")
+        if len(reason) > 200:
+            return _error("Reason must be 200 characters or fewer.", 400, "REASON_TOO_LONG")
+
+        from apps.pos.models import CashMovement
+        movement = CashMovement.objects.create(
+            shift=shift,
+            tenant_id=request.user.tenant_id,
+            type=movement_type,
+            amount=amount,
+            reason=reason,
+            authorized_by=request.user,
+        )
+        return _ok({
+            "id": str(movement.id),
+            "shift_id": str(movement.shift_id),
+            "type": movement.type,
+            "amount": str(movement.amount),
+            "reason": movement.reason,
+            "authorized_by_id": str(movement.authorized_by_id),
+            "created_at": movement.created_at.isoformat(),
         })

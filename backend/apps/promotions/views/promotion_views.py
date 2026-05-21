@@ -108,6 +108,20 @@ class PromotionListCreateView(APIView):
 
         promotion = serializer.save(tenant_id=request.user.tenant_id)
         promotion = Promotion.objects.select_related("target_category").get(id=promotion.id)
+        try:
+            from apps.audit.services.audit_service import create_audit_log, AUDIT_ACTIONS
+            create_audit_log(
+                tenant_id=request.user.tenant_id,
+                user_id=request.user.id,
+                action=AUDIT_ACTIONS["PROMOTION_CREATED"],
+                entity_type="promotion",
+                entity_id=str(promotion.id),
+                new_values={"name": promotion.name, "type": promotion.type},
+                ip_address=request.META.get("REMOTE_ADDR"),
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            pass
         return _ok(_serialize_promotion(promotion), status_code=201)
 
 
@@ -138,6 +152,20 @@ class PromotionDetailView(APIView):
 
         serializer.save()
         promotion.refresh_from_db()
+        try:
+            from apps.audit.services.audit_service import create_audit_log, AUDIT_ACTIONS
+            create_audit_log(
+                tenant_id=request.user.tenant_id,
+                user_id=request.user.id,
+                action=AUDIT_ACTIONS["PROMOTION_UPDATED"],
+                entity_type="promotion",
+                entity_id=str(id),
+                new_values=request.data if isinstance(request.data, dict) else {},
+                ip_address=request.META.get("REMOTE_ADDR"),
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            pass
         return _ok(_serialize_promotion(promotion))
 
     def delete(self, request, id):
@@ -151,4 +179,18 @@ class PromotionDetailView(APIView):
         promotion.is_active = False
         promotion.is_archived = True
         promotion.save(update_fields=["is_active", "is_archived"])
+        try:
+            from apps.audit.services.audit_service import create_audit_log, AUDIT_ACTIONS
+            create_audit_log(
+                tenant_id=request.user.tenant_id,
+                user_id=request.user.id,
+                action=AUDIT_ACTIONS["PROMOTION_ARCHIVED"],
+                entity_type="promotion",
+                entity_id=str(id),
+                new_values={"is_archived": True},
+                ip_address=request.META.get("REMOTE_ADDR"),
+                actor_role=getattr(request.user, "role", ""),
+            )
+        except Exception:
+            pass
         return Response(status=status.HTTP_204_NO_CONTENT)

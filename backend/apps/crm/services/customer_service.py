@@ -182,10 +182,29 @@ def apply_credit_to_cart(
 def redeem_credit(tenant_id: Any, customer_id: Any, amount: Decimal) -> Customer:
     if amount <= Decimal("0.00"):
         raise ValueError("Credit redemption amount must be positive")
+    customer_before = Customer.objects.filter(id=customer_id, tenant_id=tenant_id).values("credit_balance").first()
+    previous_balance = customer_before["credit_balance"] if customer_before else None
     Customer.objects.filter(id=customer_id, tenant_id=tenant_id).update(
         credit_balance=F("credit_balance") - amount
     )
-    return Customer.objects.get(id=customer_id)
+    updated = Customer.objects.get(id=customer_id)
+    # ── Audit side-effect ──────────────────────────────────────────
+    try:
+        import logging
+        _logger = logging.getLogger(__name__)
+        from apps.audit.services.audit_service import create_audit_log, AUDIT_ACTIONS
+        create_audit_log(
+            tenant_id=tenant_id,
+            user_id="SYSTEM",
+            action=AUDIT_ACTIONS["CUSTOMER_CREDIT_ADJUSTED"],
+            entity_type="customer",
+            entity_id=str(customer_id),
+            previous_values={"credit_balance": float(previous_balance) if previous_balance is not None else None},
+            new_values={"credit_balance": float(updated.credit_balance)},
+        )
+    except Exception:
+        pass
+    return updated
 
 
 # ──────────────────────────────────────────────────────────────────

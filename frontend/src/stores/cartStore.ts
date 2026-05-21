@@ -378,3 +378,54 @@ useCartStore.setState({
     debouncedEvaluate();
   },
 });
+
+// ── CFD Update Helper ─────────────────────────────────────────────────────────
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+export function sendCFDUpdate(
+  status: "IDLE" | "SCANNING" | "COMPLETE",
+  extraFields?: { change?: string | null; storeName?: string },
+) {
+  const state = useCartStore.getState();
+  const { useAuthStore } = require("@/stores/authStore") as typeof import("@/stores/authStore");
+  const authState = useAuthStore.getState();
+  const tenantId = authState.tenant_id ?? "";
+  const token = authState.accessToken ?? "";
+  if (!tenantId) return;
+
+  const subtotal = state.getSubtotal().toFixed(2);
+  const discount = state.getCartDiscountEffective().toFixed(2);
+  const total = state.getTotal().toFixed(2);
+
+  const payload = {
+    tenant_id: tenantId,
+    status,
+    items: state.items.map((item) => ({
+      variant_id: item.variantId,
+      product_name: item.productName,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      line_total: new Decimal(item.unitPrice)
+        .mul(item.quantity)
+        .toDecimalPlaces(2)
+        .toFixed(2),
+    })),
+    subtotal,
+    discount,
+    total,
+    applied_promotions: state.applied_promotions.map((p) => p.promotion_name ?? ""),
+    customer_name: state.linked_customer_name ?? null,
+    change: extraFields?.change ?? null,
+    store_name: extraFields?.storeName ?? "",
+  };
+
+  fetch(`${API_BASE}/api/hardware/cfd/update/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}

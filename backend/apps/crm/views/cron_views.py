@@ -70,6 +70,7 @@ class BirthdayGreetingCronView(APIView):
                 is_active=True,
                 deleted_at__isnull=True,
             )
+            .exclude(last_birthday_message_sent_year=today.year)
         )
 
         sent_count = 0
@@ -111,6 +112,9 @@ class BirthdayGreetingCronView(APIView):
                         tenant=customer.tenant,
                         customer=customer,
                         status="SENT",
+                    )
+                    Customer.objects.filter(id=customer.id).update(
+                        last_birthday_message_sent_year=today.year
                     )
                     sent_count += 1
                 else:

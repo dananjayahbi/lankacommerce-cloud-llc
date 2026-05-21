@@ -66,6 +66,11 @@ class Customer(models.Model):
     )
     is_active = models.BooleanField(default=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    last_birthday_message_sent_year = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="The calendar year in which a birthday WhatsApp message was last sent to this customer.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

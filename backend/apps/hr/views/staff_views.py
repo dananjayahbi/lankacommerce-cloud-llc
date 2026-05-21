@@ -205,4 +205,23 @@ class StaffDetailView(APIView):
             **update_fields
         )
         member.refresh_from_db()
+
+        # ── Audit side-effect ──────────────────────────────────────
+        if "role" in update_fields:
+            try:
+                from apps.audit.services.audit_service import create_audit_log, AUDIT_ACTIONS
+                create_audit_log(
+                    tenant_id=request.user.tenant_id,
+                    user_id=request.user.id,
+                    action=AUDIT_ACTIONS["STAFF_ROLE_CHANGED"],
+                    entity_type="staff",
+                    entity_id=str(id),
+                    new_values={"role": update_fields["role"]},
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                    user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                    actor_role=getattr(request.user, "role", ""),
+                )
+            except Exception:
+                pass
+
         return _ok(_serialize_user(member, include_has_pin=True))

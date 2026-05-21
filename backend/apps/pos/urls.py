@@ -53,6 +53,11 @@ urlpatterns = [
         views.ShiftZReportView.as_view(),
         name="shift-z-report",
     ),
+    path(
+        "shifts/<uuid:id>/cash-movements/",
+        views.ShiftCashMovementView.as_view(),
+        name="shift-cash-movements",
+    ),
 
     # Returns
     path("returns/", views.ReturnListCreateView.as_view(), name="return-list-create"),

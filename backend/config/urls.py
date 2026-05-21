@@ -30,4 +30,7 @@ urlpatterns = [
     path("api/crm/", include("apps.crm.urls")),
     path("api/hr/", include("apps.hr.urls", namespace="hr")),
     path("api/promotions/", include("apps.promotions.urls", namespace="promotions")),
+    path("api/audit/", include("apps.audit.urls")),
+    path("api/hardware/", include("apps.hardware.urls")),
+    path("api/accounts/", include("apps.accounts.extra_urls")),
 ]
