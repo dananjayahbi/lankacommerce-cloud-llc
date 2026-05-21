@@ -21,7 +21,7 @@ export default function RootLayout({
       <body>
         <a
           href="#main-content"
-          className="fixed left-2 top-2 z-[9999] -translate-y-full rounded-lg bg-[#1B2B3A] px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[9999] focus:rounded-lg focus:bg-[#1B2B3A] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
         >
           Skip to main content
         </a>

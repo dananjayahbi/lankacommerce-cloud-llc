@@ -14,7 +14,12 @@ const PUBLIC_ROUTES = [
   "/pin-login",
   "/forgot-password",
   "/reset-password",
+  "/status",
+  "/suspended",
 ];
+
+// API routes always bypass middleware — they handle their own auth
+const API_ROUTE_PREFIX = "/api/";
 
 const SUPERADMIN_ROUTES = ["/superadmin"];
 
@@ -75,8 +80,8 @@ function isNonStockClerkRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Always allow public routes through
-  if (isPublicRoute(pathname)) {
+  // 1. Always allow API routes and public routes through
+  if (pathname.startsWith(API_ROUTE_PREFIX) || isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
@@ -146,12 +151,8 @@ export async function middleware(request: NextRequest) {
       subscriptionStatus === "SUSPENDED" || subscriptionStatus === "CANCELLED";
 
     if (isSuspendedOrCancelled) {
-      // Allow billing (to pay) and suspended page (to avoid redirect loop)
-      const allowedForSuspended =
-        pathname === "/suspended" ||
-        pathname.startsWith("/suspended/") ||
-        pathname.includes("/billing") ||
-        pathname.startsWith("/api/");
+      // Allow billing to pay — /suspended and /api/ are already allowed above
+      const allowedForSuspended = pathname.includes("/billing");
 
       if (!allowedForSuspended) {
         const suspendedUrl = new URL("/suspended", request.url);

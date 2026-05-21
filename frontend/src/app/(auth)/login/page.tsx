@@ -41,7 +41,7 @@ function getRedirectPath(role: string): string {
     case "CASHIER":
       return "/store/pos";
     case "STOCK_CLERK":
-      return "/store/stock";
+      return "/store/stock-control";
     default:
       return "/store/dashboard";
   }
@@ -99,8 +99,8 @@ export default function LoginPage() {
         session_version: payload.session_version,
       });
 
-      // 5. Redirect based on role
-      router.push(getRedirectPath(payload.role));
+      // 5. Redirect based on role — hard navigation ensures cookie is sent
+      window.location.href = getRedirectPath(payload.role);
     } catch (error) {
       setServerError(
         error instanceof Error
