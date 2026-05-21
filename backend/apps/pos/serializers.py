@@ -78,6 +78,9 @@ class CreateSaleSerializer(serializers.Serializer):
     applied_store_credit = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, default=Decimal("0.00")
     )
+    applied_promotions = serializers.ListField(
+        child=serializers.DictField(), required=False, default=list
+    )
 
     def validate_lines(self, value):
         if not value:

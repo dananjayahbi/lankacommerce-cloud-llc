@@ -17,6 +17,7 @@ import { CashPaymentModal } from "./CashPaymentModal";
 import { CardPaymentModal } from "./CardPaymentModal";
 import { SplitPaymentModal } from "./SplitPaymentModal";
 import { ReceiptPreviewDialog } from "./ReceiptPreviewDialog";
+import { PromoCodeInput } from "./PromoCodeInput";
 import { CustomerSearchDropdown } from "@/components/customers/CustomerSearchDropdown";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { DISPLAY_TAX_RATE_PERCENT } from "@/config/pos.config";
@@ -80,6 +81,9 @@ export function CartPanel() {
   const getCartDiscountEffective = useCartStore((s) => s.getCartDiscountEffective);
   const getTotal = useCartStore((s) => s.getTotal);
   const clearCart = useCartStore((s) => s.clearCart);
+  const applied_promotions = useCartStore((s) => s.applied_promotions);
+  const total_discount_amount = useCartStore((s) => s.total_discount_amount);
+  const skipped_promotions = useCartStore((s) => s.skipped_promotions);
 
   const queryClient = useQueryClient();
   const [retrieveOpen, setRetrieveOpen] = useState(false);
@@ -186,6 +190,9 @@ export function CartPanel() {
       if (storeCreditDecimal.gt(0)) {
         (base as CreateSalePayload).applied_store_credit = applied_store_credit;
       }
+    }
+    if (applied_promotions.length > 0) {
+      (base as CreateSalePayload).applied_promotions = applied_promotions;
     }
     return base;
   }
@@ -387,6 +394,9 @@ export function CartPanel() {
         className="shrink-0 border-t border-[#E2E8F0] bg-white px-4 pb-2 pt-3"
         style={{ boxShadow: "0 -4px 12px rgba(0,0,0,0.08)" }}
       >
+        {/* Promo code input */}
+        <PromoCodeInput />
+
         {/* Subtotal */}
         <div className="flex items-center justify-between py-1">
           <span className="font-inter text-[14px] text-[#64748B]">Subtotal</span>
@@ -394,6 +404,30 @@ export function CartPanel() {
             {formatCurrency(subtotal)}
           </span>
         </div>
+
+        {/* Applied promotion discounts */}
+        {applied_promotions.length > 0 && (
+          <div className="py-1 space-y-0.5">
+            {applied_promotions.map((d) => (
+              <div key={d.promotion_id} className="flex items-center justify-between">
+                <span className="font-inter text-[13px]" style={{ color: "#64748B" }}>
+                  {d.label}
+                </span>
+                <span className="font-mono text-[13px]" style={{ color: "#1B2B3A" }}>
+                  −Rs. {new Decimal(d.discount_amount).toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-[#E2E8F0] pt-1">
+              <span className="font-inter text-[13px] font-semibold" style={{ color: "#1B2B3A" }}>
+                Total Discounts
+              </span>
+              <span className="font-mono text-[13px] font-semibold" style={{ color: "#EF4444" }}>
+                −Rs. {applied_promotions.reduce((acc, d) => acc.plus(new Decimal(d.discount_amount)), new Decimal("0")).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Discount — only when > 0 */}
         {hasDiscount && (

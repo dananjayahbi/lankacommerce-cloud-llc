@@ -20,9 +20,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from django.db.models import Sum
+from rest_framework import serializers as drf_serializers
+
 from apps.accounts.constants.permissions import PERMISSIONS
 from apps.accounts.models import UserRole
-from apps.accounts.permissions import HasPermission
+from apps.accounts.permissions import HasPermission, IsManagerOrAbove
 from apps.catalog.exceptions import ConflictError, NotFoundError
 from apps.core.exceptions import PermissionDeniedError
 from apps.pos.serializers import (
@@ -44,6 +47,10 @@ from apps.pos.services.whatsapp_service import (
 from apps.pos.utils.receipt_renderer import build_thermal_receipt_html
 from apps.pos.utils.return_receipt_renderer import build_return_receipt_html
 from apps.tenants.models import Tenant
+from apps.hr.services.commission_service import (
+    create_commission_record,
+    create_negative_commission_record,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -157,11 +164,38 @@ class SaleListCreateView(APIView):
                 linked_return_id=data.get("linked_return_id"),
                 customer_id=customer_id,
                 applied_store_credit=valid_credit,
+                applied_promotions=data.get("applied_promotions", []),
             )
         except NotFoundError as exc:
             return _error("NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND)
         except ConflictError as exc:
             return _error("CONFLICT", str(exc), status.HTTP_409_CONFLICT)
+
+        # ── Commission side-effect (must not roll back the sale) ───
+        from django.contrib.auth import get_user_model
+        _User = get_user_model()
+        _cashier_data = (
+            _User.objects.filter(id=cashier_id).values("commission_rate").first()
+        )
+        _commission_rate = (
+            _cashier_data["commission_rate"] if _cashier_data else None
+        )
+        try:
+            if _commission_rate is not None:
+                create_commission_record(
+                    tenant_id=sale.tenant_id,
+                    sale_id=sale.id,
+                    user_id=cashier_id,
+                    base_amount=sale.total_amount,
+                    commission_rate=_commission_rate,
+                )
+        except Exception as _exc:
+            logger.warning(
+                "Commission record creation failed for sale %s: %s",
+                sale.id,
+                str(_exc),
+            )
+
         return _ok(SaleSerializer(sale).data, status.HTTP_201_CREATED)
 
 
@@ -318,6 +352,32 @@ class ShiftListCreateView(APIView):
             )
         except ConflictError as exc:
             return _error("CONFLICT", str(exc), status.HTTP_409_CONFLICT)
+
+        # ── Optional auto clock-in side-effect ──────────────────────
+        if data.get("auto_clock_in", False):
+            try:
+                from apps.hr.services.timeclock_service import (
+                    clock_in_for_user,
+                    AlreadyClockedInError,
+                )
+                clock_in_for_user(
+                    tenant_id=tenant_id,
+                    user_id=cashier_id,
+                    shift_id=shift.id,
+                )
+            except AlreadyClockedInError:
+                logger.debug(
+                    "auto_clock_in skipped — user already clocked in. user_id=%s shift_id=%s",
+                    cashier_id,
+                    shift.id,
+                )
+            except Exception:
+                logger.warning(
+                    "auto_clock_in failed for shift %s user %s",
+                    shift.id,
+                    cashier_id,
+                )
+
         return _ok(ShiftSerializer(shift).data, status.HTTP_201_CREATED)
 
 
@@ -631,6 +691,16 @@ class ReturnListCreateView(APIView):
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # ── Commission reversal side-effect ────────────────────────
+        try:
+            create_negative_commission_record(return_record.id)
+        except Exception as _exc:
+            logger.warning(
+                "Commission reversal failed for return %s: %s",
+                return_record.id,
+                str(_exc),
+            )
+
         return _ok(ReturnSerializer(return_record).data, status.HTTP_201_CREATED)
 
 
@@ -716,3 +786,329 @@ class ShiftZReportView(APIView):
         except Exception as exc:
             return _error("NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND)
         return _ok(z_data)
+
+
+# ══════════════════════════════════════════════════════════════════
+# EXPENSE VIEWS
+# ══════════════════════════════════════════════════════════════════
+
+
+# ──────────────────────────────────────────────────────────────────
+# GET/POST /api/pos/expenses/
+# ──────────────────────────────────────────────────────────────────
+
+class _CreateExpenseSerializer(drf_serializers.Serializer):
+    from apps.pos.models import ExpenseCategory as _EC
+    category = drf_serializers.ChoiceField(choices=_EC.choices)
+    amount = drf_serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal("0.01")
+    )
+    description = drf_serializers.CharField(max_length=1000)
+    expense_date = drf_serializers.DateField()
+    receipt_image_url = drf_serializers.URLField(required=False, allow_blank=True, allow_null=True)
+
+
+class _UpdateExpenseSerializer(drf_serializers.Serializer):
+    from apps.pos.models import ExpenseCategory as _EC
+    category = drf_serializers.ChoiceField(choices=_EC.choices, required=False)
+    amount = drf_serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False
+    )
+    description = drf_serializers.CharField(max_length=1000, required=False)
+    expense_date = drf_serializers.DateField(required=False)
+    receipt_image_url = drf_serializers.URLField(required=False, allow_blank=True, allow_null=True)
+
+
+def _serialize_expense(expense):
+    return {
+        "id": str(expense.id),
+        "category": expense.category,
+        "amount": str(expense.amount),
+        "description": expense.description,
+        "receipt_image_url": expense.receipt_image_url,
+        "expense_date": str(expense.expense_date),
+        "recorded_by": {
+            "user_id": str(expense.recorded_by_id),
+            "name": expense.recorded_by.get_full_name() or expense.recorded_by.email,
+            "email": expense.recorded_by.email,
+        },
+        "created_at": expense.created_at.isoformat(),
+    }
+
+
+class ExpenseListCreateView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not IsManagerOrAbove().has_permission(request, self):
+            return _error("PERMISSION_DENIED", "Managers or above only.", status.HTTP_403_FORBIDDEN)
+
+        from apps.pos.models import Expense
+        category = request.query_params.get("category")
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        try:
+            page = max(1, int(request.query_params.get("page", 1)))
+            page_size = min(100, max(1, int(request.query_params.get("page_size", 20))))
+        except (ValueError, TypeError):
+            page, page_size = 1, 20
+
+        qs = Expense.objects.filter(
+            tenant_id=request.user.tenant_id
+        ).select_related("recorded_by").order_by("-expense_date", "-created_at")
+
+        if category:
+            qs = qs.filter(category=category)
+        if date_from:
+            qs = qs.filter(expense_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(expense_date__lte=date_to)
+
+        total_amount = qs.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        total_count = qs.count()
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        offset = (page - 1) * page_size
+        expenses = list(qs[offset : offset + page_size])
+
+        return _ok({
+            "expenses": [_serialize_expense(e) for e in expenses],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_count": total_count,
+                "total_pages": total_pages,
+            },
+            "total_amount": str(total_amount),
+        })
+
+    def post(self, request):
+        if not IsManagerOrAbove().has_permission(request, self):
+            return _error("PERMISSION_DENIED", "Managers or above only.", status.HTTP_403_FORBIDDEN)
+
+        serializer = _CreateExpenseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _error("VALIDATION_ERROR", str(serializer.errors), status.HTTP_400_BAD_REQUEST)
+
+        from apps.pos.models import Expense
+        data = serializer.validated_data
+        expense = Expense.objects.create(
+            tenant_id=request.user.tenant_id,
+            recorded_by_id=request.user.user_id,
+            **data,
+        )
+        expense.refresh_from_db()
+        expense_data = Expense.objects.select_related("recorded_by").get(pk=expense.pk)
+        return _ok(_serialize_expense(expense_data), status.HTTP_201_CREATED)
+
+
+# ──────────────────────────────────────────────────────────────────
+# GET/PATCH /api/pos/expenses/{id}/
+# ──────────────────────────────────────────────────────────────────
+
+class ExpenseDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def _get_expense(self, request, id):
+        from apps.pos.models import Expense
+        try:
+            return Expense.objects.select_related("recorded_by").get(
+                id=id, tenant_id=request.user.tenant_id
+            )
+        except Expense.DoesNotExist:
+            return None
+
+    def get(self, request, id):
+        if not IsManagerOrAbove().has_permission(request, self):
+            return _error("PERMISSION_DENIED", "Managers or above only.", status.HTTP_403_FORBIDDEN)
+        expense = self._get_expense(request, id)
+        if expense is None:
+            return _error("NOT_FOUND", "Expense not found.", status.HTTP_404_NOT_FOUND)
+        return _ok(_serialize_expense(expense))
+
+    def patch(self, request, id):
+        if not IsManagerOrAbove().has_permission(request, self):
+            return _error("PERMISSION_DENIED", "Managers or above only.", status.HTTP_403_FORBIDDEN)
+        expense = self._get_expense(request, id)
+        if expense is None:
+            return _error("NOT_FOUND", "Expense not found.", status.HTTP_404_NOT_FOUND)
+
+        serializer = _UpdateExpenseSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return _error("VALIDATION_ERROR", str(serializer.errors), status.HTTP_400_BAD_REQUEST)
+
+        from apps.pos.models import Expense
+        Expense.objects.filter(id=id, tenant_id=request.user.tenant_id).update(
+            **serializer.validated_data
+        )
+        updated = Expense.objects.select_related("recorded_by").get(pk=id)
+        return _ok(_serialize_expense(updated))
+
+
+# ──────────────────────────────────────────────────────────────────
+# GET /api/pos/expenses/upload-url/
+# ──────────────────────────────────────────────────────────────────
+
+class ExpenseReceiptUploadView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not IsManagerOrAbove().has_permission(request, self):
+            return _error("PERMISSION_DENIED", "Managers or above only.", status.HTTP_403_FORBIDDEN)
+
+        file_name = request.query_params.get("file_name", "").strip()
+        mime_type = request.query_params.get("mime_type", "").strip()
+
+        if not file_name or not mime_type:
+            return _error("VALIDATION_ERROR", "file_name and mime_type are required.", status.HTTP_400_BAD_REQUEST)
+
+        allowed_types = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+        if mime_type not in allowed_types:
+            return _error(
+                "UNSUPPORTED_MEDIA_TYPE",
+                "Only JPEG, PNG, and WebP images are supported.",
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            )
+
+        from django.conf import settings as django_settings
+        bucket = getattr(django_settings, "AWS_S3_BUCKET", None)
+        if not bucket:
+            return Response(
+                {"success": False, "error": {"code": "UPLOAD_NOT_CONFIGURED", "message": "Receipt upload is not configured in this environment."}},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        from uuid import uuid4
+        import boto3
+        ext = allowed_types[mime_type]
+        key = f"receipts/{request.user.tenant_id}/{uuid4()}.{ext}"
+        region = getattr(django_settings, "AWS_S3_REGION", "us-east-1")
+        s3_client = boto3.client("s3", region_name=region)
+        upload_url = s3_client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": bucket, "Key": key, "ContentType": mime_type},
+            ExpiresIn=300,
+        )
+        custom_domain = getattr(django_settings, "AWS_S3_CUSTOM_DOMAIN", None)
+        if custom_domain:
+            object_url = f"https://{custom_domain}/{key}"
+        else:
+            object_url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
+        return _ok({"upload_url": upload_url, "object_url": object_url})
+
+
+# ══════════════════════════════════════════════════════════════════
+# CASH FLOW VIEW
+# ══════════════════════════════════════════════════════════════════
+
+class _CashFlowQuerySerializer(drf_serializers.Serializer):
+    date_from = drf_serializers.DateField()
+    date_to = drf_serializers.DateField()
+
+    def validate(self, attrs):
+        if attrs["date_from"] > attrs["date_to"]:
+            raise drf_serializers.ValidationError("date_from must not be after date_to.")
+        return attrs
+
+
+class CashFlowView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Sum, Count
+        from apps.pos.models import Sale, Return, Payment, Expense, CashMovement
+
+        if not IsManagerOrAbove().has_permission(request, self):
+            return _error("PERMISSION_DENIED", "Managers or above only.", status.HTTP_403_FORBIDDEN)
+
+        serializer = _CashFlowQuerySerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return _error("VALIDATION_ERROR", str(serializer.errors), status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        date_from = data["date_from"]
+        date_to = data["date_to"]
+        tenant_id = request.user.tenant_id
+
+        # Income
+        gross_sales = (
+            Sale.objects.filter(
+                tenant_id=tenant_id,
+                status="COMPLETED",
+                completed_at__date__gte=date_from,
+                completed_at__date__lte=date_to,
+            ).aggregate(gross=Sum("total_amount"))["gross"] or Decimal("0.00")
+        )
+        total_refunds = (
+            Return.objects.filter(
+                tenant_id=tenant_id,
+                created_at__date__gte=date_from,
+                created_at__date__lte=date_to,
+            ).aggregate(refunds=Sum("refund_amount"))["refunds"] or Decimal("0.00")
+        )
+        total_income = gross_sales - total_refunds
+
+        payment_breakdown_qs = Payment.objects.filter(
+            sale__tenant_id=tenant_id,
+            sale__status="COMPLETED",
+            sale__completed_at__date__gte=date_from,
+            sale__completed_at__date__lte=date_to,
+        ).values("method").annotate(total=Sum("amount"))
+        payment_breakdown_dict = {row["method"]: str(row["total"]) for row in payment_breakdown_qs}
+
+        # Expenses
+        expense_breakdown_qs = Expense.objects.filter(
+            tenant_id=tenant_id,
+            expense_date__gte=date_from,
+            expense_date__lte=date_to,
+        ).values("category").annotate(total=Sum("amount"))
+        expense_breakdown_list = [
+            {"category": row["category"], "total": str(row["total"])} for row in expense_breakdown_qs
+        ]
+        total_expenses = sum(
+            (Decimal(row["total"]) for row in expense_breakdown_list), Decimal("0.00")
+        )
+
+        # Cash Movements
+        movement_qs = CashMovement.objects.filter(
+            tenant_id=tenant_id,
+            created_at__date__gte=date_from,
+            created_at__date__lte=date_to,
+        ).values("type").annotate(total=Sum("amount"), count=Count("id"))
+        movement_breakdown_dict = {
+            row["type"]: {"total": str(row["total"]), "count": row["count"]}
+            for row in movement_qs
+        }
+
+        def _mov(t):
+            return Decimal(str(movement_breakdown_dict.get(t, {}).get("total", "0") or "0"))
+
+        manual_in = _mov("MANUAL_IN")
+        opening_float = _mov("OPENING_FLOAT")
+        petty_cash_out = _mov("PETTY_CASH_OUT")
+        manual_out = _mov("MANUAL_OUT")
+        net_movement = manual_in + opening_float - petty_cash_out - manual_out
+        net_cash_flow = total_income - total_expenses + net_movement
+
+        return _ok({
+            "period": {"date_from": str(date_from), "date_to": str(date_to)},
+            "income": {
+                "gross_sales": str(gross_sales),
+                "total_refunds": str(total_refunds),
+                "net_income": str(total_income),
+                "payment_breakdown": payment_breakdown_dict,
+            },
+            "expenses": {
+                "total": str(total_expenses),
+                "by_category": expense_breakdown_list,
+            },
+            "cash_movements": {
+                "by_type": movement_breakdown_dict,
+                "net_movement": str(net_movement),
+            },
+            "net_cash_flow": str(net_cash_flow),
+        })

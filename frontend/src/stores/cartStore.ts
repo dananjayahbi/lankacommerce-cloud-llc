@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import Decimal from "decimal.js";
 import type { CartItem } from "@/types/pos";
+import type { AppliedDiscount, SkippedPromotion } from "@/types/promotions";
+import { debounce } from "@/utils/debounce";
 
 // Configure Decimal for monetary rounding
 Decimal.set({ rounding: Decimal.ROUND_HALF_UP });
@@ -28,6 +30,13 @@ interface CartState {
   linked_customer_name: string | null;
   linked_customer_credit_balance: string | null;
   applied_store_credit: string;
+
+  // Promotions evaluation state
+  applied_promotions: AppliedDiscount[];
+  skipped_promotions: SkippedPromotion[];
+  total_discount_amount: string;
+  applied_promo_code: string | null;
+  is_evaluating_promotions: boolean;
 
   // Computed derived values
   getSubtotal: () => Decimal;
@@ -57,6 +66,8 @@ interface CartState {
   linkCustomer: (id: string, name: string, creditBalance: string) => void;
   unlinkCustomer: () => void;
   setAppliedStoreCredit: (amount: string) => void;
+  evaluatePromotions: () => Promise<void>;
+  setPromoCode: (code: string | null) => void;
 }
 
 export const useCartStore = create<CartState>()((set, get) => ({
@@ -73,6 +84,13 @@ export const useCartStore = create<CartState>()((set, get) => ({
   linked_customer_name: null,
   linked_customer_credit_balance: null,
   applied_store_credit: "0",
+
+  // Promotions
+  applied_promotions: [],
+  skipped_promotions: [],
+  total_discount_amount: "0",
+  applied_promo_code: null,
+  is_evaluating_promotions: false,
 
   getSubtotal: () => {
     const { items } = get();
@@ -192,6 +210,11 @@ export const useCartStore = create<CartState>()((set, get) => ({
       linked_customer_name: null,
       linked_customer_credit_balance: null,
       applied_store_credit: "0",
+      applied_promotions: [],
+      skipped_promotions: [],
+      total_discount_amount: "0",
+      applied_promo_code: null,
+      is_evaluating_promotions: false,
     });
   },
 
@@ -246,4 +269,112 @@ export const useCartStore = create<CartState>()((set, get) => ({
   setAppliedStoreCredit: (amount) => {
     set({ applied_store_credit: amount });
   },
+
+  evaluatePromotions: async () => {
+    const state = get();
+    if (state.items.length === 0) {
+      set({
+        applied_promotions: [],
+        skipped_promotions: [],
+        total_discount_amount: "0",
+        is_evaluating_promotions: false,
+      });
+      return;
+    }
+
+    set({ is_evaluating_promotions: true });
+
+    try {
+      const cartLinesArray = state.items.map((item) => ({
+        variant_id: item.variantId,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        manual_discount_amount: item.discountPercent !== "0"
+          ? new Decimal(item.unitPrice)
+              .mul(item.quantity)
+              .mul(new Decimal(item.discountPercent))
+              .div(100)
+              .toFixed(2)
+          : "0",
+        category_id: (item as CartItem & { categoryId?: string }).categoryId ?? null,
+      }));
+
+      const params = new URLSearchParams({
+        cart_lines: JSON.stringify(cartLinesArray),
+      });
+      if (state.linked_customer_id) {
+        params.append("customer_id", state.linked_customer_id);
+      }
+      if (state.applied_promo_code) {
+        params.append("promo_code", state.applied_promo_code);
+      }
+
+      // Get token from auth store
+      const { useAuthStore } = await import("@/stores/authStore");
+      const token = useAuthStore.getState().accessToken;
+      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+      const res = await fetch(`${API_BASE}/api/promotions/evaluate/?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        set({
+          applied_promotions: json.data.applied_discounts,
+          skipped_promotions: json.data.skipped_promotions,
+          total_discount_amount: json.data.total_discount_amount,
+          is_evaluating_promotions: false,
+        });
+      } else {
+        console.warn("Promotion evaluation failed:", res.status);
+        set({ is_evaluating_promotions: false });
+      }
+    } catch (err) {
+      console.warn("Promotion evaluation error:", err);
+      set({ is_evaluating_promotions: false });
+    }
+  },
+
+  setPromoCode: (code) => {
+    set({ applied_promo_code: code });
+    debouncedEvaluate.cancel();
+    void useCartStore.getState().evaluatePromotions();
+  },
 }));
+
+// Module-level debounce — shared across all cart mutations
+const debouncedEvaluate = debounce(
+  () => void useCartStore.getState().evaluatePromotions(),
+  300
+);
+
+// Wire debouncedEvaluate to cart mutations by patching the store
+const _origAddItem = useCartStore.getState().addItem;
+useCartStore.setState({
+  addItem: (...args) => {
+    _origAddItem(...args);
+    debouncedEvaluate();
+  },
+});
+const _origRemoveItem = useCartStore.getState().removeItem;
+useCartStore.setState({
+  removeItem: (...args) => {
+    _origRemoveItem(...args);
+    debouncedEvaluate();
+  },
+});
+const _origUpdateQuantity = useCartStore.getState().updateQuantity;
+useCartStore.setState({
+  updateQuantity: (...args) => {
+    _origUpdateQuantity(...args);
+    debouncedEvaluate();
+  },
+});
+const _origUpdateLineDiscount = useCartStore.getState().updateLineDiscount;
+useCartStore.setState({
+  updateLineDiscount: (...args) => {
+    _origUpdateLineDiscount(...args);
+    debouncedEvaluate();
+  },
+});

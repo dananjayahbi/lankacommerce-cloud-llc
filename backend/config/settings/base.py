@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.pos",
     "apps.crm",
+    "apps.hr",
+    "apps.promotions",
 ]
 
 MIDDLEWARE = [
@@ -208,3 +210,12 @@ STATIC_URL = "static/"
 # Email (overridden per environment)
 EMAIL_FROM = "noreply@lankacommerce.dev"
 PASSWORD_RESET_TIMEOUT_HOURS = 1
+
+# Password hashers — BCrypt first for staff PINs
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]

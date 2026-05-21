@@ -5,6 +5,12 @@ from django.urls import path
 from apps.pos import views
 
 urlpatterns = [
+    # expenses/upload-url/ and expenses/cash-flow/ must be listed BEFORE expenses/<uuid:id>/
+    path("expenses/upload-url/", views.ExpenseReceiptUploadView.as_view(), name="expense-upload-url"),
+    path("expenses/cash-flow/", views.CashFlowView.as_view(), name="expense-cash-flow"),
+    path("expenses/", views.ExpenseListCreateView.as_view(), name="expense-list-create"),
+    path("expenses/<uuid:id>/", views.ExpenseDetailView.as_view(), name="expense-detail"),
+
     # sales/hold/ must be listed BEFORE sales/<uuid:id>/ so Django
     # does not attempt to match the literal "hold" as a UUID first.
     path("sales/hold/", views.SaleHoldView.as_view(), name="sale-hold"),

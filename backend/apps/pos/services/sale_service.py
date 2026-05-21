@@ -188,6 +188,7 @@ def create_sale(
     linked_return_id: Any = None,
     customer_id: Any = None,
     applied_store_credit: Decimal = Decimal("0.00"),
+    applied_promotions: list = None,
 ) -> Sale:
     """Create a completed sale with atomic stock deduction and payment records.
 
@@ -287,6 +288,7 @@ def create_sale(
             linked_return_id=linked_return_id or None,
             customer_id=customer_id or None,
             applied_store_credit=applied_store_credit,
+            applied_promotions=applied_promotions or [],
         )
 
         # ── 8. Create SaleLine records ────────────────────────────

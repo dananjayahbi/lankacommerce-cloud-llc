@@ -4,6 +4,7 @@ import { ShoppingBag, Minus, Plus, X } from "lucide-react";
 import Decimal from "decimal.js";
 import { useCartStore } from "@/stores/cartStore";
 import { LineItemDiscountControl } from "./LineItemDiscountControl";
+import { PromotionLabelList } from "./PromotionLabelList";
 import { formatCurrency } from "@/lib/formatCurrency";
 import type { CartItem } from "@/types/pos";
 
@@ -16,6 +17,8 @@ export function LineItemRow({ item }: Props) {
   const removeItem = useCartStore((s) => s.removeItem);
   const setActiveLine = useCartStore((s) => s.setActiveLine);
   const activeLineId = useCartStore((s) => s.activeLineId);
+  const applied_promotions = useCartStore((s) => s.applied_promotions);
+  const is_evaluating_promotions = useCartStore((s) => s.is_evaluating_promotions);
 
   const isActive = activeLineId === item.variantId;
 
@@ -124,6 +127,16 @@ export function LineItemRow({ item }: Props) {
             onClose={() => setActiveLine(item.variantId)}
           />
         )}
+      </div>
+
+      {/* Promotion pills */}
+      <div className="px-4 pb-1">
+        <PromotionLabelList
+          appliedDiscounts={applied_promotions.filter((d) =>
+            d.affected_lines.includes(item.variantId)
+          )}
+          isEvaluating={is_evaluating_promotions}
+        />
       </div>
     </div>
   );

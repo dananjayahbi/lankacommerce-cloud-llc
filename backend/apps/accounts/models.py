@@ -137,6 +137,24 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         help_text="Soft delete timestamp. Non-null means the user is deactivated.",
     )
 
+    # Commission & Time-clock (Phase 04.02)
+    commission_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Percentage commission rate applied to completed sales for this staff member.",
+    )
+    clocked_in_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Denormalised mirror of the latest TimeClock.clocked_in_at. "
+            "Non-null means the user is currently clocked in. "
+            "Must be updated atomically with the TimeClock record."
+        ),
+    )
+
     objects = CustomUserManager()
 
     USERNAME_FIELD = "email"

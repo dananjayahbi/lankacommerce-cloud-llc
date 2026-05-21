@@ -114,6 +114,12 @@ class Sale(models.Model):
     applied_store_credit = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
+    # Phase 04.02 — Promotions integration
+    applied_promotions = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Snapshot list of promotion rules applied to this sale.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # Populated when this sale is the replacement cart in an exchange return
@@ -347,3 +353,107 @@ class StoreCredit(models.Model):
 
     def __str__(self) -> str:
         return f"StoreCredit Rs.{self.amount} (tenant={self.tenant_id})"
+
+
+# ──────────────────────────────────────────────────────────────────
+# Expense & Cash Movement subsystem (SubPhase 04.02)
+# ──────────────────────────────────────────────────────────────────
+
+
+class ExpenseCategory(models.TextChoices):
+    RENT = "RENT", "Rent"
+    SALARIES = "SALARIES", "Salaries"
+    UTILITIES = "UTILITIES", "Utilities"
+    ADVERTISING = "ADVERTISING", "Advertising"
+    MAINTENANCE = "MAINTENANCE", "Maintenance"
+    MISCELLANEOUS = "MISCELLANEOUS", "Miscellaneous"
+    OTHER = "OTHER", "Other"
+
+
+class CashMovementType(models.TextChoices):
+    OPENING_FLOAT = "OPENING_FLOAT", "Opening Float"
+    PETTY_CASH_OUT = "PETTY_CASH_OUT", "Petty Cash Out"
+    MANUAL_IN = "MANUAL_IN", "Manual In"
+    MANUAL_OUT = "MANUAL_OUT", "Manual Out"
+
+
+class Expense(models.Model):
+    """
+    Records an operational expense (e.g. rent, utilities) against a tenant.
+    amount is always stored as a positive value.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        related_name="expenses",
+    )
+    category = models.CharField(max_length=30, choices=ExpenseCategory.choices)
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Always stored as a positive value.",
+    )
+    description = models.TextField()
+    receipt_image_url = models.URLField(blank=True, null=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="recorded_expenses",
+    )
+    expense_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["tenant", "expense_date"]),
+        ]
+        ordering = ["-expense_date", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"Expense {self.category} Rs.{self.amount} on {self.expense_date}"
+
+
+class CashMovement(models.Model):
+    """
+    Tracks cash in/out events within a shift (opening float, petty cash, etc.).
+    amount is always stored as a positive value; type determines direction.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        related_name="cash_movements",
+    )
+    shift = models.ForeignKey(
+        Shift,
+        on_delete=models.CASCADE,
+        related_name="cash_movements",
+    )
+    type = models.CharField(max_length=30, choices=CashMovementType.choices)
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Always stored as a positive value.",
+    )
+    reason = models.TextField(blank=True)
+    authorized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="authorized_cash_movements",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["tenant", "shift"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"CashMovement {self.type} Rs.{self.amount} (shift={self.shift_id})"
+

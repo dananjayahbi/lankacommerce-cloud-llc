@@ -142,6 +142,7 @@ export interface CreateSalePayload {
   linked_return_id?: string | null;
   customer_id?: string | null;
   applied_store_credit?: string;
+  applied_promotions?: Array<Record<string, unknown>>;
 }
 
 
