@@ -49,11 +49,8 @@ export default function HardwareSettingsPage() {
     queryKey: ["hardware-settings"],
     queryFn: () => fetchHardwareSettings(accessToken ?? ""),
     enabled: !!accessToken,
-    placeholderData: (prev) => prev,
-    onSuccess: (data: HardwareConfig) => {
-      setSavedConfig(data);
-    },
-  } as Parameters<typeof useQuery>[0]);
+    placeholderData: (prev: HardwareConfig | undefined) => prev,
+  });
 
   // Role guard
   if (isManagerOrAbove === false) {

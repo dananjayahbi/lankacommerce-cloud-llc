@@ -1,9 +1,20 @@
 import { cookies } from "next/headers";
 import { decodeJwt } from "jose";
-import { AlertTriangle, Mail } from "lucide-react";
+import { Lock, AlertTriangle, Mail } from "lucide-react";
+import Link from "next/link";
 
-const DJANGO_API_BASE =
-  process.env.DJANGO_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+function formatLkr(amount: string | number): string {
+  const n = Number(amount);
+  if (!n || n <= 0) return "LKR 0.00";
+  return new Intl.NumberFormat("en-LK", {
+    style: "currency",
+    currency: "LKR",
+    minimumFractionDigits: 2,
+  }).format(n);
+}
 
 interface Invoice {
   id: string;
@@ -27,7 +38,7 @@ export default async function SuspendedPage() {
 
       if (tenantId) {
         const res = await fetch(
-          `${DJANGO_API_BASE}/api/tenants/${tenantId}/invoices/?status=UNPAID`,
+          `${API_BASE}/api/tenants/${tenantId}/invoices/?status=UNPAID`,
           {
             headers: { Authorization: `Bearer ${accessToken}` },
             cache: "no-store",
@@ -40,7 +51,7 @@ export default async function SuspendedPage() {
             ? data
             : data.results ?? [];
           if (invoices.length > 0) {
-            unpaidInvoice = invoices[0];
+            unpaidInvoice = invoices[0] ?? null;
           }
         }
       }

@@ -57,7 +57,7 @@ const getPresets = (): Preset[] => {
 }
 
 interface DateRangePickerProps {
-  value?: DateRange
+  value?: DateRange | undefined
   onRangeChange: (range: DateRange) => void
 }
 

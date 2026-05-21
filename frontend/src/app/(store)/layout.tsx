@@ -17,7 +17,7 @@ export default async function StoreLayout({
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {isGracePeriod && <GracePeriodBanner graceEndsAt={graceEndsAt} />}
-      <div className="flex flex-1">
+      <div id="main-content" className="flex flex-1">
         <StoreLayoutClient accessToken={accessToken}>
           {children}
         </StoreLayoutClient>

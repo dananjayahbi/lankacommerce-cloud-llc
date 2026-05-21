@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useFieldArray, type Resolver } from "react-hook-form";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Button } from "@/components/ui/button";
 import { SizeChipInput } from "./SizeChipInput";
 import { ColourChipInput } from "./ColourChipInput";
@@ -73,7 +73,7 @@ export function WizardStep2Variants() {
     setValue,
     formState: { errors },
   } = useForm<ProductStep2Data>({
-    resolver: zodResolver(productStep2Schema),
+    resolver: standardSchemaResolver(productStep2Schema) as unknown as Resolver<ProductStep2Data>,
     defaultValues: {
       sizes: step2Data.sizes ?? [],
       colours: step2Data.colours ?? [],
@@ -129,7 +129,7 @@ export function WizardStep2Variants() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit as unknown as Parameters<typeof handleSubmit>[0])} className="space-y-6">
       {/* Axis panels */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="space-y-2">
@@ -160,7 +160,7 @@ export function WizardStep2Variants() {
             fields={fields as any}
             register={register}
             watch={watch}
-            setValue={setValue}
+            setValue={setValue as (name: string, value: unknown) => void}
           />
         </div>
       ) : (

@@ -390,7 +390,7 @@ export function sendCFDUpdate(
   const state = useCartStore.getState();
   const { useAuthStore } = require("@/stores/authStore") as typeof import("@/stores/authStore");
   const authState = useAuthStore.getState();
-  const tenantId = authState.tenant_id ?? "";
+  const tenantId = authState.user?.tenant_id ?? "";
   const token = authState.accessToken ?? "";
   if (!tenantId) return;
 
@@ -414,7 +414,7 @@ export function sendCFDUpdate(
     subtotal,
     discount,
     total,
-    applied_promotions: state.applied_promotions.map((p) => p.promotion_name ?? ""),
+    applied_promotions: state.applied_promotions.map((p) => p.label ?? ""),
     customer_name: state.linked_customer_name ?? null,
     change: extraFields?.change ?? null,
     store_name: extraFields?.storeName ?? "",

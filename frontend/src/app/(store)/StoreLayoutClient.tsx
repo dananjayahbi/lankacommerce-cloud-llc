@@ -11,7 +11,7 @@ import type { UserPayload } from "@/stores/authStore";
 interface StoreLayoutClientProps {
   children: React.ReactNode;
   /** Access token passed from the Server Component layout (read from cookie via headers) */
-  accessToken?: string;
+  accessToken?: string | undefined;
 }
 
 export function StoreLayoutClient({

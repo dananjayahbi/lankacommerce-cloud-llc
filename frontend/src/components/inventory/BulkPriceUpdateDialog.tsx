@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { z } from "zod/v4";
 import {
   Dialog,
@@ -52,8 +52,8 @@ export function BulkPriceUpdateDialog({
   const accessToken = useAuthStore((state) => state.accessToken);
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<BulkPriceFormData>({
-    resolver: zodResolver(bulkPriceSchema),
-    defaultValues: { mode: "FIXED", retailPrice: undefined },
+    resolver: standardSchemaResolver(bulkPriceSchema),
+    defaultValues: { mode: "FIXED" } as BulkPriceFormData,
   });
 
   const onSubmit = async (data: BulkPriceFormData) => {
@@ -105,7 +105,7 @@ export function BulkPriceUpdateDialog({
           ))}
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as Parameters<typeof handleSubmit>[0])} className="space-y-4">
           <input type="hidden" {...register("mode")} value={activeMode} />
 
           {activeMode === "FIXED" ? (

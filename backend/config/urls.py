@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
+    path("api/health/", include("apps.health.urls")),
     path("admin/", admin.site.urls),
     path("api/auth/", include("apps.accounts.urls", namespace="accounts")),
     path("api/admin/", include("apps.accounts.admin_urls")),
@@ -34,4 +35,6 @@ urlpatterns = [
     path("api/hardware/", include("apps.hardware.urls")),
     path("api/accounts/", include("apps.accounts.extra_urls")),
     path("api/reports/", include("apps.reports.urls")),
+    path("api/billing/", include("apps.billing.urls")),
+    path("api/webhooks/", include("apps.webhooks.urls")),
 ]

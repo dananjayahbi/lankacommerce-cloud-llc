@@ -209,7 +209,7 @@ export default function BroadcastFilterPanel({
             onValueChange={(val) =>
               onChange({
                 ...filters,
-                birthday_month: val === "" ? "" : parseInt(val, 10),
+                birthday_month: (val ?? "") === "" ? "" : parseInt(val ?? "", 10),
               })
             }
           >

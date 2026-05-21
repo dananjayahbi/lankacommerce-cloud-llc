@@ -47,7 +47,7 @@ export default function ImportPage() {
           </p>
         </div>
 
-        <WizardProgressBar currentStep={step} stepLabels={STEPS as unknown as string[]} />
+        <WizardProgressBar currentStep={step} />
 
         <div className="rounded-xl bg-white border border-border p-6">
           {step === 1 && (

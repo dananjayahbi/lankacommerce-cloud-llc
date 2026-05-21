@@ -62,6 +62,9 @@ INSTALLED_APPS = [
     "apps.audit",
     "apps.hardware",
     "apps.reports",
+    "apps.billing",
+    "apps.webhooks",
+    "apps.health",
 ]
 
 MIDDLEWARE = [
@@ -222,3 +225,48 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
+
+# ---------------------------------------------------------------------------
+# PayHere Payment Gateway
+# ---------------------------------------------------------------------------
+PAYHERE_MERCHANT_ID = config("PAYHERE_MERCHANT_ID", default="1219688")
+PAYHERE_MERCHANT_SECRET = config("PAYHERE_MERCHANT_SECRET", default="demo-secret")
+PAYHERE_SANDBOX = config("PAYHERE_SANDBOX", default=True, cast=bool)
+
+# ---------------------------------------------------------------------------
+# Cron Security
+# ---------------------------------------------------------------------------
+CRON_SECRET = config("CRON_SECRET", default="dev-cron-secret-change-in-production")
+
+# ---------------------------------------------------------------------------
+# Resend Email API
+# ---------------------------------------------------------------------------
+RESEND_API_KEY = config("RESEND_API_KEY", default="")
+
+# ---------------------------------------------------------------------------
+# App URL (used for payment return URLs, email links, etc.)
+# ---------------------------------------------------------------------------
+APP_URL = config("APP_URL", default="http://localhost:3000")
+
+# ---------------------------------------------------------------------------
+# Sentry Error Monitoring
+# ---------------------------------------------------------------------------
+SENTRY_DSN = config("SENTRY_DSN", default=None)
+ENVIRONMENT = config("ENVIRONMENT", default="development")
+GIT_SHA = config("GIT_SHA", default="unknown")
+
+# Initialise Sentry only when a DSN is configured
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    _sample_rate = 0.5 if ENVIRONMENT == "production" else (1.0 if ENVIRONMENT == "staging" else 0.0)
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        release=GIT_SHA,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=_sample_rate,
+        send_default_pii=True,
+    )

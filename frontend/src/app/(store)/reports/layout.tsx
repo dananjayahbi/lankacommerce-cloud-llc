@@ -45,7 +45,7 @@ function deriveExportArgs(
   }
   if (rows.length === 0) return null
 
-  const firstRow = rows[0]
+  const firstRow = rows[0]!
   const columns: ReportColumn[] = Object.keys(firstRow).map((key) => {
     const lk = key.toLowerCase()
     let fmt: ReportColumn['format'] = 'text'

@@ -164,6 +164,13 @@ class PINLoginView(APIView):
         refresh["permissions"] = user.permissions_list
         refresh["tenant_id"] = str(user.tenant_id) if user.tenant_id else None
         refresh["session_version"] = user.session_version
+        if user.tenant_id:
+            try:
+                refresh["subscription_status"] = user.tenant.subscription_status
+            except Exception:
+                refresh["subscription_status"] = "TRIAL"
+        else:
+            refresh["subscription_status"] = "ACTIVE"
 
         user.last_login_at = timezone.now()
         user.save(update_fields=["last_login_at"])

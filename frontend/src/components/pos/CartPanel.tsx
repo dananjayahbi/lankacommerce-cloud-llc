@@ -337,7 +337,7 @@ export function CartPanel() {
                     <p className="text-xs text-[#64748B]">Store Credit: Rs. {new Decimal(linked_customer_credit_balance).toFixed(2)}</p>
                   )}
                 </div>
-                <button type="button" onClick={unlinkCustomer} className="p-1 rounded hover:bg-[#F1F5F9]">
+                <button type="button" onClick={unlinkCustomer} aria-label="Unlink customer" className="p-1 rounded hover:bg-[#F1F5F9]">
                   <X size={14} className="text-[#64748B]" />
                 </button>
               </div>

@@ -88,7 +88,7 @@ function LiveClock() {
 
 // ── Idle State ────────────────────────────────────────────────────────────────
 
-function IdleScreen({ storeName }: { storeName?: string }) {
+function IdleScreen({ storeName }: { storeName?: string | undefined }) {
   return (
     <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-10 overflow-hidden bg-background pb-6">
       <div className="text-center">
@@ -254,7 +254,7 @@ export default function CFDPage() {
   const prevCartStateRef = useRef<CartState | null>(null);
 
   // Read tenant_id from auth store (CFD is displayed on same-network device)
-  const tenantId = useAuthStore((s) => s.tenant_id);
+  const tenantId = useAuthStore((s) => s.user?.tenant_id);
 
   // SSE subscription
   useEffect(() => {
@@ -287,6 +287,7 @@ export default function CFDPage() {
       prevCartStateRef.current = cartState;
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [cartState]);
 
   // Auto-reset from complete
@@ -298,6 +299,7 @@ export default function CFDPage() {
       }, 8000);
       return () => clearTimeout(timeout);
     }
+    return undefined;
   }, [isComplete]);
 
   // Derive display state
@@ -322,7 +324,7 @@ export default function CFDPage() {
       ) : isActive && cartState ? (
         <ActiveScreen cart={cartState} />
       ) : (
-        <IdleScreen storeName={cartState?.store_name} />
+        <IdleScreen {...(cartState?.store_name ? { storeName: cartState.store_name } : {})} />
       )}
     </div>
   );

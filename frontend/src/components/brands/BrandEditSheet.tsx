@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod/v4";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
@@ -45,9 +45,10 @@ export function BrandEditSheet({ isOpen, onClose, brand }: BrandEditSheetProps) 
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<BrandFormData>({
-    resolver: zodResolver(brandSchema),
+    resolver: standardSchemaResolver(brandSchema),
     defaultValues: { name: brand?.name ?? "", description: brand?.description ?? "" },
   });
 

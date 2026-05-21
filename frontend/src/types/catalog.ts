@@ -83,13 +83,13 @@ export interface PaginatedProducts {
 }
 
 export interface ProductFilters {
-  search?: string;
-  category_id?: string;
-  brand_id?: string;
-  gender?: GenderType;
-  is_archived?: boolean;
-  page?: number;
-  page_size?: number;
+  search?: string | undefined;
+  category_id?: string | undefined;
+  brand_id?: string | undefined;
+  gender?: GenderType | undefined;
+  is_archived?: boolean | undefined;
+  page?: number | undefined;
+  page_size?: number | undefined;
 }
 
 export interface StockMovement {

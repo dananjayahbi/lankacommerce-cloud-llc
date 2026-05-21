@@ -47,11 +47,11 @@ export interface PromotionFormValues {
   name: string;
   type: PromotionType;
   value: string;
-  promo_code: string;
-  target_category_id: string;
-  min_quantity: string;
-  starts_at: string;
-  ends_at: string;
+  promo_code?: string | undefined;
+  target_category_id?: string | undefined;
+  min_quantity?: string | undefined;
+  starts_at?: string | undefined;
+  ends_at?: string | undefined;
   is_active: boolean;
-  description: string;
+  description?: string | undefined;
 }

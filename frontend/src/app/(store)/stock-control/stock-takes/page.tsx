@@ -306,7 +306,7 @@ export default function StockTakesPage() {
 
             {/* Category dropdown */}
             {scope === "category" && (
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? '')}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a category…" />
                 </SelectTrigger>

@@ -97,7 +97,7 @@ export default function ExpensesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1); }}>
+        <Select value={category} onValueChange={(v) => { setCategory(v ?? 'all'); setPage(1); }}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>

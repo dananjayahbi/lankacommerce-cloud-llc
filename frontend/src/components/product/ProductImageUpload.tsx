@@ -85,7 +85,7 @@ export function ProductImageUpload({
   };
 
   const handleRemove = (index: number) => {
-    const removedUrl = imageUrls[index];
+    const removedUrl = imageUrls[index] ?? '';
     const newUrls = imageUrls.filter((_, i) => i !== index);
     onImagesChange(newUrls);
 

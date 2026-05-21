@@ -205,7 +205,7 @@ export function HardwareSettingsForm({
           {/* Paper Width */}
           <div>
             <Label className="mb-1 block text-sm">Paper Width</Label>
-            <Select value={paperWidth} onValueChange={setPaperWidth}>
+            <Select value={paperWidth} onValueChange={(v) => setPaperWidth(v ?? '80mm')}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>

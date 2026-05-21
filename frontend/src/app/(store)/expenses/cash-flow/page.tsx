@@ -79,8 +79,8 @@ function getMonthDefaults() {
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return {
-    from: from.toISOString().split("T")[0],
-    to: to.toISOString().split("T")[0],
+    from: from.toISOString().split("T")[0] ?? "",
+    to: to.toISOString().split("T")[0] ?? "",
   };
 }
 
@@ -279,8 +279,8 @@ export default function CashFlowPage() {
                     </Table>
                   ) : Object.keys(data.income.payment_breakdown).length === 1 ? (
                     <p className="font-inter text-[14px]" style={{ color: "#64748B" }}>
-                      All via {PAYMENT_METHOD_LABELS[Object.keys(data.income.payment_breakdown)[0]] ?? Object.keys(data.income.payment_breakdown)[0]}:{" "}
-                      Rs. {new Decimal(Object.values(data.income.payment_breakdown)[0]).toFixed(2)}
+                      All via {PAYMENT_METHOD_LABELS[Object.keys(data.income.payment_breakdown)[0] ?? ""] ?? Object.keys(data.income.payment_breakdown)[0]}:{" "}
+                      Rs. {new Decimal(Object.values(data.income.payment_breakdown)[0] ?? 0).toFixed(2)}
                     </p>
                   ) : null}
                   <p className="font-inter text-[12px]" style={{ color: "#64748B" }}>

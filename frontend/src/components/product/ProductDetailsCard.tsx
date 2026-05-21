@@ -58,7 +58,7 @@ export function ProductDetailsCard({ product }: ProductDetailsCardProps) {
           <dd className="mt-1 text-sm">{product.tax_rule}</dd>
         </div>
 
-        {product.category && (
+        {product.category_name && (
           <div>
             <dt className="text-xs font-semibold uppercase text-muted-foreground">Category</dt>
             <dd className="mt-1 text-sm">
@@ -66,13 +66,13 @@ export function ProductDetailsCard({ product }: ProductDetailsCardProps) {
                 href="/inventory/categories"
                 className="text-[var(--color-orange)] hover:underline"
               >
-                {product.category.name}
+                {product.category_name}
               </a>
             </dd>
           </div>
         )}
 
-        {product.brand && (
+        {product.brand_name && (
           <div>
             <dt className="text-xs font-semibold uppercase text-muted-foreground">Brand</dt>
             <dd className="mt-1 text-sm">
@@ -80,7 +80,7 @@ export function ProductDetailsCard({ product }: ProductDetailsCardProps) {
                 href="/inventory/brands"
                 className="text-[var(--color-orange)] hover:underline"
               >
-                {product.brand.name}
+                {product.brand_name}
               </a>
             </dd>
           </div>

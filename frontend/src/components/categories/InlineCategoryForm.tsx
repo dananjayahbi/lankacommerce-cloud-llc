@@ -75,7 +75,7 @@ export function InlineCategoryForm({ onClose }: InlineCategoryFormProps) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label className="text-xs">Parent Category (optional)</Label>
-          <Select value={parentId} onValueChange={setParentId}>
+          <Select value={parentId} onValueChange={(v) => setParentId(v ?? '')}>
             <SelectTrigger className="h-8">
               <SelectValue placeholder="Top level" />
             </SelectTrigger>

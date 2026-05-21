@@ -109,7 +109,8 @@ export function CreateStaffModal({ open, onClose }: CreateStaffModalProps) {
       if (detail?.errors) {
         for (const [field, messages] of Object.entries(detail.errors)) {
           setError(field as keyof FormValues, {
-            message: Array.isArray(messages) ? messages[0] : String(messages),
+            type: 'server',
+            message: Array.isArray(messages) ? (messages[0] ?? 'Invalid') : String(messages),
           });
         }
       } else {

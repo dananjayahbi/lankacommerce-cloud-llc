@@ -4,6 +4,7 @@
  */
 
 import type { UserPayload } from "@/stores/authStore";
+import type { AppliedDiscount } from "@/types/promotions";
 
 export type PaymentMethod = "CASH" | "CARD" | "SPLIT" | "EXCHANGE";
 export type PaymentLegMethod = "CASH" | "CARD";
@@ -142,7 +143,7 @@ export interface CreateSalePayload {
   linked_return_id?: string | null;
   customer_id?: string | null;
   applied_store_credit?: string;
-  applied_promotions?: Array<Record<string, unknown>>;
+  applied_promotions?: AppliedDiscount[] | undefined;
 }
 
 

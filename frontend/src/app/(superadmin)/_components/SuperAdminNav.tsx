@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   Building2,
   HeartPulse,
+  TrendingUpIcon,
+  CreditCardIcon,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -19,6 +21,18 @@ const NAV_ITEMS = [
     label: "Tenants",
     href: "/superadmin/tenants",
     icon: Building2,
+    exact: false,
+  },
+  {
+    label: "Plans",
+    href: "/superadmin/plans",
+    icon: CreditCardIcon,
+    exact: false,
+  },
+  {
+    label: "MRR Dashboard",
+    href: "/superadmin/mrr",
+    icon: TrendingUpIcon,
     exact: false,
   },
   {

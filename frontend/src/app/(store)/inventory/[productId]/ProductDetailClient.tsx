@@ -112,14 +112,14 @@ export function ProductDetailClient({ productId }: ProductDetailClientProps) {
 
               {/* Metadata pills */}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {product.category && (
+                {product.category_name && (
                   <span className="rounded-full border border-border px-2.5 py-0.5 text-xs">
-                    {product.category.name}
+                    {product.category_name}
                   </span>
                 )}
-                {product.brand && (
+                {product.brand_name && (
                   <span className="rounded-full border border-border px-2.5 py-0.5 text-xs">
-                    {product.brand.name}
+                    {product.brand_name}
                   </span>
                 )}
                 <ProductStatusBadge product={product} />

@@ -86,7 +86,7 @@ export default function PromotionsPage() {
       if (data.type === "PROMO_CODE" && data.promo_code) {
         const cached = queryClient.getQueryData<Promotion[]>(["promotions"]);
         const exists = cached?.some(
-          (p) => p.promo_code?.toLowerCase() === data.promo_code.toLowerCase()
+          (p) => p.promo_code?.toLowerCase() === (data.promo_code ?? '').toLowerCase()
         );
         if (exists) {
           throw new Error("DUPLICATE_CODE");

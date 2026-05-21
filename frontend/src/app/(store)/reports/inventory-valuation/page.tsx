@@ -96,7 +96,7 @@ export default function InventoryValuationPage() {
   })
 
   useEffect(() => {
-    if (data) setReportData(data as Record<string, unknown>)
+    if (data) setReportData(data as unknown as Record<string, unknown>)
   }, [data, setReportData])
 
   const sortedRows = [...(data?.rows ?? [])].sort((a, b) => {

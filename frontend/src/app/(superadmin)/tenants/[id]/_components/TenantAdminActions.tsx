@@ -33,9 +33,9 @@ export default function TenantAdminActions({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken ?? ''}`,
         },
-        body: body ? JSON.stringify(body) : undefined,
+        body: body ? JSON.stringify(body) : null,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

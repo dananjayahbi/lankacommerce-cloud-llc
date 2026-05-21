@@ -146,7 +146,7 @@ export default function StockMovementsPage() {
   })
 
   useEffect(() => {
-    if (data) setReportData(data as Record<string, unknown>)
+    if (data) setReportData(data as unknown as Record<string, unknown>)
   }, [data, setReportData])
 
   const totalIn = data?.summary.reduce((acc, s) => acc + (s.totalDelta > 0 ? s.totalDelta : 0), 0) ?? 0

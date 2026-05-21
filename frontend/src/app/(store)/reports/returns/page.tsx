@@ -129,7 +129,7 @@ export default function ReturnRatePage() {
   })
 
   useEffect(() => {
-    if (data) setReportData(data as Record<string, unknown>)
+    if (data) setReportData(data as unknown as Record<string, unknown>)
   }, [data, setReportData])
 
   const maxReturnedUnits = Math.max(...(data?.topReturnedProducts ?? []).map((p) => p.returnedUnits), 1)
@@ -268,7 +268,7 @@ export default function ReturnRatePage() {
                   paddingAngle={2}
                 >
                   {pieData.map((_, i) => (
-                    <Cell key={`cell-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    <Cell key={`cell-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length] ?? '#94a3b8'} />
                   ))}
                 </Pie>
                 <Tooltip

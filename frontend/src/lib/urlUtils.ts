@@ -9,7 +9,7 @@
  * Setting a value to null/undefined removes the param.
  */
 export function mergeSearchParams(
-  current: URLSearchParams | ReadonlyURLSearchParams,
+  current: URLSearchParams | { toString(): string },
   updates: Record<string, string | string[] | null | undefined>,
 ): string {
   const next = new URLSearchParams(current.toString());

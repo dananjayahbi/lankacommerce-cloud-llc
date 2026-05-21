@@ -77,7 +77,7 @@ export function ColumnMappingTable({ csvHeaders, csvRows, onConfirm }: ColumnMap
                   <td className="px-4 py-2">
                     <Select
                       value={mapping[field]}
-                      onValueChange={(v) => setMapping((prev) => ({ ...prev, [field]: v }))}
+                      onValueChange={(v) => setMapping((prev) => ({ ...prev, [field]: v ?? '' }))}
                     >
                       <SelectTrigger className="h-8 w-48">
                         <SelectValue placeholder="— Not mapped —" />

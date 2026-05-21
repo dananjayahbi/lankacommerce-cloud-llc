@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod/v4";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import type { Resolver } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,7 +28,7 @@ const schema = z.object({
   whatsapp_number: z.string().optional(),
   email: z.union([z.string().email("Invalid email"), z.literal("")]).optional(),
   address: z.string().max(500).optional(),
-  lead_time_days: z.coerce.number().int().min(1).max(365).default(7),
+  lead_time_days: z.number().int().min(1).max(365).default(7),
   notes: z.string().max(1000).optional(),
 });
 
@@ -53,7 +54,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, onSuccess }: Props
     reset,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: standardSchemaResolver(schema),
+    resolver: standardSchemaResolver(schema) as unknown as Resolver<FormValues>,
     defaultValues: {
       name: "",
       contact_name: "",
@@ -131,7 +132,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, onSuccess }: Props
           </SheetTitle>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+        <form onSubmit={handleSubmit((v) => mutation.mutate(v as unknown as Parameters<typeof mutation.mutate>[0]))} className="space-y-4">
           {/* Name */}
           <div className="space-y-1">
             <Label htmlFor="s-name">Supplier Name *</Label>

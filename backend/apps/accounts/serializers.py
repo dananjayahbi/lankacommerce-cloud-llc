@@ -21,6 +21,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["permissions"] = user.permissions_list
         token["tenant_id"] = str(user.tenant_id) if user.tenant_id else None
         token["session_version"] = user.session_version
+        if user.tenant_id:
+            try:
+                token["subscription_status"] = user.tenant.subscription_status
+            except Exception:
+                token["subscription_status"] = "TRIAL"
+        else:
+            token["subscription_status"] = "ACTIVE"
 
         return token
 

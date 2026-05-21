@@ -39,7 +39,7 @@ export function AuditLogFilters({
         <label className="text-xs font-medium text-text-muted">
           Entity Type
         </label>
-        <Select value={entityType} onValueChange={onEntityTypeChange}>
+        <Select value={entityType} onValueChange={(v) => onEntityTypeChange(v ?? '')}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All types" />
           </SelectTrigger>

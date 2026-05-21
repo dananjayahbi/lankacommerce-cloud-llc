@@ -109,7 +109,7 @@ export default function RevenueTrendPage() {
   })
 
   useEffect(() => {
-    if (data) setReportData(data as Record<string, unknown>)
+    if (data) setReportData(data as unknown as Record<string, unknown>)
   }, [data, setReportData])
 
   const chartData = (data?.trendBuckets ?? []).map((b) => ({

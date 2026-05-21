@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, Controller, type Resolver } from "react-hook-form";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
   Sheet,
   SheetContent,
@@ -58,7 +58,7 @@ export function VariantEditSheet({
     reset,
     formState: { errors, isDirty, dirtyFields },
   } = useForm<VariantEditData>({
-    resolver: zodResolver(variantEditSchema),
+    resolver: standardSchemaResolver(variantEditSchema) as unknown as Resolver<VariantEditData>,
     defaultValues: {
       sku: variant.sku,
       barcode: variant.barcode ?? "",
@@ -129,7 +129,7 @@ export function VariantEditSheet({
           <p className="font-mono text-xs text-muted-foreground">{variant.sku}</p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 py-4">
+        <form onSubmit={handleSubmit(onSubmit as unknown as Parameters<typeof handleSubmit>[0])} className="space-y-4 px-4 py-4">
           {/* SKU */}
           <div className="space-y-1.5">
             <Label htmlFor="sku">SKU</Label>
@@ -277,7 +277,7 @@ export function VariantEditSheet({
           <Button
             type="submit"
             form="variant-edit-form"
-            onClick={handleSubmit(onSubmit)}
+            onClick={handleSubmit(onSubmit as unknown as Parameters<typeof handleSubmit>[0])}
             disabled={mutation.isPending}
             className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
           >

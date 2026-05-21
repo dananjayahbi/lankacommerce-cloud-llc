@@ -89,6 +89,18 @@ class Tenant(models.Model):
         choices=TenantStatus.choices,
         default=TenantStatus.ACTIVE,
     )
+    subscription_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("TRIAL", "Trial"),
+            ("ACTIVE", "Active"),
+            ("PAST_DUE", "Past Due"),
+            ("SUSPENDED", "Suspended"),
+            ("CANCELLED", "Cancelled"),
+        ],
+        default="TRIAL",
+        db_index=True,
+    )
     grace_ends_at = models.DateTimeField(null=True, blank=True)
     custom_domain = models.CharField(max_length=255, null=True, blank=True)
     settings = models.JSONField(default=_default_tenant_settings)

@@ -9,6 +9,7 @@ import { useShiftContext } from "@/contexts/ShiftContext";
 import { useAuthStore } from "@/stores/authStore";
 import { usePersistCartEffect } from "@/hooks/usePersistCartEffect";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function PosPage() {
   const { shift } = useShiftContext();
@@ -46,7 +47,9 @@ export default function PosPage() {
       <div className="flex min-h-0 flex-1 flex-row">
         {/* Left panel — product browsing (63%) */}
         <div className="flex min-h-0 flex-col overflow-hidden" style={{ flex: "0 0 63%" }}>
-          <ProductGrid />
+          <ErrorBoundary context="Product Grid">
+            <ProductGrid />
+          </ErrorBoundary>
         </div>
 
         {/* Right panel — cart (37%) */}
@@ -54,7 +57,9 @@ export default function PosPage() {
           className="flex min-h-0 flex-col overflow-hidden border-l border-[#2C3E50]"
           style={{ flex: "0 0 37%" }}
         >
-          <CartPanel />
+          <ErrorBoundary context="Cart">
+            <CartPanel />
+          </ErrorBoundary>
         </div>
       </div>
     </>

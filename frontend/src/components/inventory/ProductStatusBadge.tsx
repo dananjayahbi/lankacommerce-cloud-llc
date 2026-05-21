@@ -6,9 +6,9 @@ interface ProductStatusBadgeProps {
     variants?: Pick<
       ProductVariant,
       "stock_quantity" | "low_stock_threshold" | "deleted_at"
-    >[];
+    >[] | undefined;
   };
-  className?: string;
+  className?: string | undefined;
 }
 
 type StatusInfo = {

@@ -109,7 +109,7 @@ export default function AdjustStockPage() {
   });
 
   // If variant_id param provided, fetch product containing that variant
-  useQuery({
+  const { data: prefillData } = useQuery<{ variant: ProductVariant; product: Product } | null>({
     queryKey: ["adjust-prefill-variant", variantIdParam],
     queryFn: async () => {
       const res = await fetch(
@@ -121,11 +121,15 @@ export default function AdjustStockPage() {
       return json.data as { variant: ProductVariant; product: Product };
     },
     enabled: !!variantIdParam && !!accessToken,
-    onSuccess: (data) => {
-      setSelectedProduct(data.product);
-      setSelectedVariant(data.variant);
-    },
-  } as never);
+  });
+
+  // Populate selected product/variant when prefill data loads
+  useEffect(() => {
+    if (prefillData) {
+      setSelectedProduct(prefillData.product);
+      setSelectedVariant(prefillData.variant);
+    }
+  }, [prefillData]);
 
   // Submit mutation
   const { mutate: submitAdjustment, isPending } = useMutation({
@@ -372,7 +376,7 @@ export default function AdjustStockPage() {
         {selectedVariant && (
           <div className="mt-4 space-y-1">
             <Label>Reason for Adjustment <span className="text-red-500">*</span></Label>
-            <Select value={reason} onValueChange={setReason}>
+            <Select value={reason} onValueChange={(v) => setReason(v ?? '')}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a reason…" />
               </SelectTrigger>

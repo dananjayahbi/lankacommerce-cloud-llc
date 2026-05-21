@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,13 +70,13 @@ export function WizardStep1BasicInfo() {
     setValue,
     formState: { errors },
   } = useForm<ProductStep1Data>({
-    resolver: zodResolver(productStep1Schema),
+    resolver: standardSchemaResolver(productStep1Schema) as unknown as Resolver<ProductStep1Data>,
     defaultValues: {
       name: step1Data.name ?? "",
       description: step1Data.description ?? "",
-      category_id: step1Data.category_id ?? undefined,
-      brand_id: step1Data.brand_id ?? undefined,
-      gender: step1Data.gender,
+      ...(step1Data.category_id ? { category_id: step1Data.category_id } : {}),
+      ...(step1Data.brand_id ? { brand_id: step1Data.brand_id } : {}),
+      gender: step1Data.gender ?? "UNISEX",
       tags: step1Data.tags ?? [],
       tax_rule: step1Data.tax_rule ?? "STANDARD_VAT",
     },
@@ -142,7 +142,7 @@ export function WizardStep1BasicInfo() {
 
   return (
     <>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit as unknown as Parameters<typeof handleSubmit>[0])} className="space-y-5">
         {/* Product Name */}
         <div className="space-y-1.5">
           <Label htmlFor="name">

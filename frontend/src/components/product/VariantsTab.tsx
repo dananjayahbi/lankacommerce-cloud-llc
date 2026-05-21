@@ -225,7 +225,7 @@ export function VariantsTab({ product }: VariantsTabProps) {
         variants={variants.map((v) => ({
           ...v,
           productName: product.name,
-          brandName: product.brand?.name,
+          ...(product.brand_name != null ? { brandName: product.brand_name } : {}),
         }))}
       />
     </div>

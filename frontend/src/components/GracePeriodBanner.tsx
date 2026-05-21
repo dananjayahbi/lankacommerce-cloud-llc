@@ -7,7 +7,7 @@ import { AlertTriangle, X } from "lucide-react";
 const DISMISS_KEY = "lankacommerce-grace-banner-dismissed";
 
 interface GracePeriodBannerProps {
-  graceEndsAt?: string;
+  graceEndsAt?: string | undefined;
 }
 
 export default function GracePeriodBanner({ graceEndsAt }: GracePeriodBannerProps) {

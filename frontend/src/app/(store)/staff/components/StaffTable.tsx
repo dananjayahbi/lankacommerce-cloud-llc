@@ -82,7 +82,7 @@ export function StaffTable({ staff, onToggleActive }: StaffTableProps) {
                 <TableCell>
                   <Switch
                     checked={member.is_active}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked: boolean) =>
                       onToggleActive(member.id, checked)
                     }
                     aria-label={`Toggle active status for ${member.name}`}
@@ -90,9 +90,9 @@ export function StaffTable({ staff, onToggleActive }: StaffTableProps) {
                 </TableCell>
                 <TableCell className="text-text-muted">{rateDisplay}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/staff/${member.id}`}>View</Link>
-                  </Button>
+                  <Link href={`/staff/${member.id}`} className="inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm font-medium hover:bg-muted transition-colors">
+                    View
+                  </Link>
                 </TableCell>
               </TableRow>
             );

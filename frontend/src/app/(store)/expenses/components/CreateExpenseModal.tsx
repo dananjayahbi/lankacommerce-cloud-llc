@@ -60,7 +60,7 @@ export function CreateExpenseModal({ open, onClose, onSuccess, queryKey }: Props
   const [isSubmitting, setIsSubmitting] = useState(false);
   const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0] ?? "";
 
   const {
     register,

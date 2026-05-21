@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { z } from "zod/v4";
 
 import { PinEntryModal } from "@/components/auth/PinEntryModal";
 import type { UserPayload } from "@/stores/authStore";
@@ -37,7 +37,7 @@ export default function PinLoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<EmailForm>({ resolver: zodResolver(emailSchema) });
+  } = useForm<EmailForm>({ resolver: standardSchemaResolver(emailSchema) });
 
   const onEmailSubmit = (data: EmailForm) => {
     setSubmittedEmail(data.email);

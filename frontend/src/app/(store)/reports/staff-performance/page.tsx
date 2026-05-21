@@ -88,7 +88,7 @@ export default function StaffPerformancePage() {
   })
 
   useEffect(() => {
-    if (data) setReportData(data as Record<string, unknown>)
+    if (data) setReportData(data as unknown as Record<string, unknown>)
   }, [data, setReportData])
 
   if (role === 'STOCK_CLERK') {
