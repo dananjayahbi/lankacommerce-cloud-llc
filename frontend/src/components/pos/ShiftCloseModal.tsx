@@ -115,7 +115,7 @@ export function ShiftCloseModal({
       }
 
       onOpenChange(false);
-      router.push("/");
+      router.push("/store/dashboard");
     } catch {
       setServerError("Network error. Please try again.");
     }

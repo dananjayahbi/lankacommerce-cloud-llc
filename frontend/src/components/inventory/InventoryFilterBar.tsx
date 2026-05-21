@@ -52,7 +52,7 @@ export function InventoryFilterBar() {
   const updateUrl = useCallback(
     (updates: Record<string, string | string[] | null>) => {
       const qs = mergeSearchParams(searchParams, { ...updates, page: "1" });
-      router.push(`/inventory?${qs}`);
+      router.push(`/store/inventory?${qs}`);
     },
     [router, searchParams],
   );

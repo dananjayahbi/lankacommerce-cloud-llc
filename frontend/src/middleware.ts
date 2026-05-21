@@ -24,7 +24,7 @@ const MANAGEMENT_ONLY_ROUTES = [
   "/store/staff",
 ];
 
-const NON_CASHIER_ROUTES = ["/store/stock"];
+const NON_CASHIER_ROUTES = ["/store/stock-control"];
 
 const NON_STOCKCLERK_ROUTES = ["/store/pos"];
 
@@ -136,7 +136,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isNonStockClerkRoute(pathname) && role === "STOCK_CLERK") {
-    return NextResponse.redirect(new URL("/store/stock", request.url));
+    return NextResponse.redirect(new URL("/store/stock-control", request.url));
   }
 
   // 5. Subscription status enforcement (JWT-based, non-SUPER_ADMIN only)

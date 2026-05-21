@@ -64,7 +64,7 @@ export function WizardStep3Review() {
 
       queryClient.invalidateQueries({ queryKey: ["products"] });
       resetWizard();
-      router.push("/inventory");
+      router.push("/store/inventory");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {

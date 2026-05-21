@@ -63,7 +63,7 @@ export function ProductDetailsCard({ product }: ProductDetailsCardProps) {
             <dt className="text-xs font-semibold uppercase text-muted-foreground">Category</dt>
             <dd className="mt-1 text-sm">
               <a
-                href="/inventory/categories"
+                href="/store/inventory/categories"
                 className="text-[var(--color-orange)] hover:underline"
               >
                 {product.category_name}
@@ -77,7 +77,7 @@ export function ProductDetailsCard({ product }: ProductDetailsCardProps) {
             <dt className="text-xs font-semibold uppercase text-muted-foreground">Brand</dt>
             <dd className="mt-1 text-sm">
               <a
-                href="/inventory/brands"
+                href="/store/inventory/brands"
                 className="text-[var(--color-orange)] hover:underline"
               >
                 {product.brand_name}

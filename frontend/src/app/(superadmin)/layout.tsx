@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { decodeJwt } from "jose";
 import React from "react";
-import SuperAdminNav from "./_components/SuperAdminNav";
-import LogoutButton from "./_components/LogoutButton";
+import SuperAdminNav from "./superadmin/_components/SuperAdminNav";
+import LogoutButton from "./superadmin/_components/LogoutButton";
 
 export default async function SuperAdminLayout({
   children,

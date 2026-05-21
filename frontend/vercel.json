@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/check-subscriptions",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/birthday-messages",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/payment-reminders",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/webhook-retry",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

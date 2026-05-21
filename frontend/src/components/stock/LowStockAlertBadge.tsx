@@ -41,7 +41,7 @@ export function LowStockAlertBadge({ initialCount }: Props) {
 
   return (
     <Link
-      href="/stock-control/low-stock"
+      href="/store/stock-control/low-stock"
       className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 hover:bg-amber-100 transition-colors"
     >
       <span>

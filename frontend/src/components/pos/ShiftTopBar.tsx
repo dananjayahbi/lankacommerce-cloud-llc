@@ -57,7 +57,7 @@ export function ShiftTopBar({ shift }: ShiftTopBarProps) {
           <button
             type="button"
             title="Sale History"
-            onClick={() => router.push("/pos/history")}
+            onClick={() => router.push("/store/pos/history")}
             className="rounded p-1.5 text-[#64748B] transition-colors hover:text-white"
           >
             <HistoryIcon size={18} />

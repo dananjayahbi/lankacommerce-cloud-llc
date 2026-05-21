@@ -99,7 +99,7 @@ export function ImportPreviewTable({ csvRows, mapping, onBack }: ImportPreviewTa
       if (!res.ok) throw new Error("Import failed");
       const json = await res.json();
       toast.success(`${json.created ?? "?"} products created, ${json.variants ?? "?"} variants added.`);
-      router.push("/inventory");
+      router.push("/store/inventory");
     } catch {
       toast.error("Import failed. Please try again.");
     } finally {

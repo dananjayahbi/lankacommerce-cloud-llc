@@ -74,8 +74,9 @@ class Command(BaseCommand):
             ("Asela", "Wickramasinghe", "stock@lankademo.com", UserRole.STOCK_CLERK, "5555", None),
         ]
         staff_users: dict[str, User] = {}
+        DEMO_PASSWORD = "Demo@2024!"
         for first, last, email, role, pin, commission in staff_data:
-            user, _ = User.objects.update_or_create(
+            user, created = User.objects.update_or_create(
                 email=email,
                 defaults={
                     "first_name": first,
@@ -87,6 +88,9 @@ class Command(BaseCommand):
                     "is_active": True,
                 },
             )
+            # Always set the login password so re-runs keep it fresh
+            user.set_password(DEMO_PASSWORD)
+            user.save(update_fields=["password"])
             staff_users[email] = user
         self.stdout.write(f"Staff created: {len(staff_users)}")
 

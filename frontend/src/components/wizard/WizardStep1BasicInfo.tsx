@@ -89,7 +89,7 @@ export function WizardStep1BasicInfo() {
 
   const handleCancel = () => {
     resetWizard();
-    router.push("/inventory");
+    router.push("/store/inventory");
   };
 
   const createCategory = async () => {

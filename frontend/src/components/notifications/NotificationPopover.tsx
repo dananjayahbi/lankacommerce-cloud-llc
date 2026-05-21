@@ -97,9 +97,9 @@ export function NotificationPopover() {
     if (!n.is_read) markRead(n.id);
     setOpen(false);
     if (n.related_entity_type === "ProductVariant") {
-      router.push("/stock-control/low-stock");
+      router.push("/store/stock-control/low-stock");
     } else if (n.related_entity_type === "StockTakeSession") {
-      router.push(`/stock-control/stock-takes/${n.related_entity_id}/review`);
+      router.push(`/store/stock-control/stock-takes/${n.related_entity_id}/review`);
     }
   }
 

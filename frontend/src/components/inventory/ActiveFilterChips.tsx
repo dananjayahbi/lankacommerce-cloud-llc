@@ -28,11 +28,11 @@ export function ActiveFilterChips() {
 
   const removeParam = (updates: Record<string, string | null>) => {
     const qs = mergeSearchParams(searchParams, { ...updates, page: "1" });
-    router.push(`/inventory?${qs}`);
+    router.push(`/store/inventory?${qs}`);
   };
 
   const clearAll = () => {
-    router.push("/inventory");
+    router.push("/store/inventory");
   };
 
   const chipBase = "inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs border";

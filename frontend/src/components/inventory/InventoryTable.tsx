@@ -145,7 +145,7 @@ export function InventoryTable({
             Clear filters
           </Button>
         ) : (
-          <Link href="/inventory/new">
+          <Link href="/store/inventory/new">
             <Button className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
               <Plus className="mr-1 h-4 w-4" />
               Add Product
@@ -220,7 +220,7 @@ export function InventoryTable({
                         <ClothingIcon />
                       )}
                       <Link
-                        href={`/inventory/${product.id}`}
+                        href={`/store/inventory/${product.id}`}
                         className="font-semibold text-[var(--color-navy)] hover:underline"
                       >
                         {product.name}
@@ -254,7 +254,7 @@ export function InventoryTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      <Link href={`/inventory/${product.id}`}>
+                      <Link href={`/store/inventory/${product.id}`}>
                         <Button variant="ghost" size="icon" aria-label="View product">
                           <Eye className="h-4 w-4" />
                         </Button>

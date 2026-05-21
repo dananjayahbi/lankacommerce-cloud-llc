@@ -51,7 +51,7 @@ export default function GracePeriodBanner({ graceEndsAt }: GracePeriodBannerProp
         )}
       </p>
       <Link
-        href="/settings/billing"
+        href="/store/settings/billing"
         className="flex-shrink-0 rounded border border-white/60 px-3 py-1 text-xs font-medium hover:bg-white/10 transition-colors"
       >
         Resolve Now
