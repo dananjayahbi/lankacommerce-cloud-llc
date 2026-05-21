@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "apps.promotions",
     "apps.audit",
     "apps.hardware",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [

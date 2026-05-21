@@ -13,8 +13,7 @@ platformdirs==4.9.6
 psycopg2-binary==2.9.12
 PyJWT==2.12.1
 python-decouple==3.8
-pytokens==0.4.1
-ruff==0.15.13
+pytokens==0.4.1resend==2.30.1ruff==0.15.13
 sqlparse==0.5.5
 tzdata==2026.2
 isort==8.0.1
