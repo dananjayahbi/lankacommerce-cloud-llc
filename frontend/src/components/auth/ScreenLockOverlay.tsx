@@ -102,7 +102,7 @@ export function ScreenLockOverlay() {
             className="text-sm hover:underline disabled:opacity-50"
             style={{ color: "#94A3B8" }}
           >
-            {isSigningOut ? "Signing out…" : "Sign out instead"}
+            {isSigningOut ? "Signing out\u2026" : "Sign in with email & password"}
           </button>
         </div>
 
@@ -126,6 +126,7 @@ export function ScreenLockOverlay() {
           email={user.email}
           onSuccess={handlePinSuccess}
           onClose={() => setShowPinModal(false)}
+          onUsePassword={handleLogout}
         />
       )}
     </>

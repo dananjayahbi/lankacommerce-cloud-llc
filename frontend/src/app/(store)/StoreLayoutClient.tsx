@@ -7,6 +7,7 @@ import { ScreenLockOverlay } from "@/components/auth/ScreenLockOverlay";
 import { useInactivityTimer } from "@/hooks/useInactivityTimer";
 import { useAuthStore } from "@/stores/authStore";
 import type { UserPayload } from "@/stores/authStore";
+import { StoreSidebar } from "@/app/(store)/components/StoreSidebar";
 
 interface StoreLayoutClientProps {
   children: React.ReactNode;
@@ -52,7 +53,10 @@ export function StoreLayoutClient({
 
   return (
     <>
-      {children}
+      <StoreSidebar />
+      <div className="flex-1 overflow-auto">
+        {children}
+      </div>
       <ScreenLockOverlay />
     </>
   );

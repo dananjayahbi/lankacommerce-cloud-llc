@@ -75,3 +75,12 @@ class ForgotPasswordRateThrottle(LankaCommerceRateThrottle):
     """
 
     scope = "forgot_password"
+
+
+class RegistrationRateThrottle(LankaCommerceRateThrottle):
+    """
+    Rate limit for the public tenant self-registration endpoint.
+    5 registrations per hour per IP address.
+    """
+
+    scope = "registration"

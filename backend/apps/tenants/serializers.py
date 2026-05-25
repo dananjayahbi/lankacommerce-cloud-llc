@@ -100,3 +100,43 @@ class TenantProvisionSerializer(serializers.Serializer):
         if CustomUser.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
+
+
+class TenantSelfRegisterSerializer(serializers.Serializer):
+    """
+    Public self-registration serializer.
+    Businesses use this to sign up for the platform without superadmin involvement.
+    """
+
+    store_name = serializers.CharField(max_length=255)
+    # slug is optional — auto-generated from store_name if omitted
+    slug = serializers.SlugField(max_length=100, required=False, allow_blank=True)
+    owner_email = serializers.EmailField()
+    owner_password = serializers.CharField(min_length=8, write_only=True)
+    timezone = serializers.CharField(max_length=100, default="Asia/Colombo")
+    currency = serializers.CharField(max_length=10, default="LKR")
+
+    def validate_slug(self, value):
+        if value and Tenant.objects.filter(slug=value).exists():
+            raise serializers.ValidationError("This store URL is already taken.")
+        return value
+
+    def validate_owner_email(self, value):
+        from apps.accounts.models import CustomUser
+
+        value = value.lower().strip()
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return value
+
+    def validate_owner_password(self, value):
+        """Enforce basic password strength."""
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters.")
+        has_upper = any(c.isupper() for c in value)
+        has_digit = any(c.isdigit() for c in value)
+        if not (has_upper and has_digit):
+            raise serializers.ValidationError(
+                "Password must contain at least one uppercase letter and one number."
+            )
+        return value

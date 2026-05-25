@@ -14,6 +14,7 @@ from apps.reports.views.customer_analytics_view import CustomerAnalyticsView
 from apps.reports.views.staff_performance_view import StaffPerformanceView
 from apps.reports.views.return_rate_view import ReturnRateView
 from apps.reports.views.daily_summary_cron_view import DailySummaryCronView
+from apps.reports.views.store_dashboard_view import StoreDashboardView
 
 urlpatterns = [
     path("saved/", SavedReportListCreateView.as_view(), name="saved-report-list-create"),
@@ -28,4 +29,5 @@ urlpatterns = [
     path("staff-performance/", StaffPerformanceView.as_view(), name="staff-performance"),
     path("returns/", ReturnRateView.as_view(), name="return-rate"),
     path("cron/daily-summary/", DailySummaryCronView.as_view(), name="daily-summary-cron"),
+    path("store-dashboard/", StoreDashboardView.as_view(), name="store-dashboard"),
 ]

@@ -10,6 +10,8 @@ interface PinEntryModalProps {
   email: string;
   onSuccess: (user: UserPayload) => void;
   onClose: () => void;
+  /** Called when the user wants to sign in with email & password instead of PIN */
+  onUsePassword?: () => void;
 }
 
 const PIN_LENGTH = 4;
@@ -21,11 +23,12 @@ const NUMPAD_KEYS = [
   ["←", "0", "✓"],
 ];
 
-export function PinEntryModal({ email, onSuccess, onClose }: PinEntryModalProps) {
+export function PinEntryModal({ email, onSuccess, onClose, onUsePassword }: PinEntryModalProps) {
   const setUser = useAuthStore((state) => state.setUser);
   const [pin, setPin] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [noPinConfigured, setNoPinConfigured] = useState(false);
 
   const handleKeyPress = (key: string) => {
     setError(null);
@@ -78,10 +81,13 @@ export function PinEntryModal({ email, onSuccess, onClose }: PinEntryModalProps)
 
       onSuccess(payload);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Invalid PIN. Please try again."
-      );
+      const msg = err instanceof Error ? err.message : "Invalid PIN. Please try again.";
+      setError(msg);
       setPin("");
+      // If PIN is not set up, auto-surface the password fallback
+      if (msg.toLowerCase().includes("not configured")) {
+        setNoPinConfigured(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -138,6 +144,23 @@ export function PinEntryModal({ email, onSuccess, onClose }: PinEntryModalProps)
           <p className="text-center text-sm mb-4" style={{ color: "#EF4444" }}>
             {error}
           </p>
+        )}
+
+        {/* No PIN configured — show password fallback */}
+        {noPinConfigured && onUsePassword && (
+          <div
+            className="rounded-lg px-4 py-3 mb-4 text-sm text-center"
+            style={{ backgroundColor: "#FFF7ED", color: "#92400E" }}
+          >
+            No PIN has been set up for this account.{" "}
+            <button
+              onClick={onUsePassword}
+              className="underline font-medium"
+              style={{ color: "#F97316" }}
+            >
+              Sign in with password instead
+            </button>
+          </div>
         )}
 
         {/* Numpad */}

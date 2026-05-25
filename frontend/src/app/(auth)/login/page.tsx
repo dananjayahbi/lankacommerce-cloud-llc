@@ -1,14 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { z } from "zod/v4";
 import { jwtDecode } from "jwt-decode";
+import Link from "next/link";
 
-import { loginUser } from "@/lib/api/auth";
+import { loginUser, getTenantPublicInfo, type TenantPublicInfo } from "@/lib/api/auth";
 import { useAuthStore, UserPayload } from "@/stores/authStore";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Extract subdomain from hostname, e.g. "testbusiness.localhost" → "testbusiness" */
+function extractSubdomain(hostname: string): string | null {
+  const host = hostname.split(":")[0];
+  const parts = host.split(".");
+  if (parts.length < 2) return null;
+  const sub = parts[0];
+  if (sub === "www" || sub === "localhost" || sub === "127") return null;
+  return sub;
+}
 
 // ---------------------------------------------------------------------------
 // Validation schema
@@ -60,6 +75,20 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Subdomain / tenant context (populated client-side from hostname)
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
+  const [tenantInfo, setTenantInfo] = useState<TenantPublicInfo | null>(null);
+
+  useEffect(() => {
+    const slug = extractSubdomain(window.location.hostname);
+    if (slug) {
+      setTenantSlug(slug);
+      getTenantPublicInfo(slug).then((info) => {
+        if (info) setTenantInfo(info);
+      });
+    }
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -73,8 +102,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // 1. Call Django login API
-      const response = await loginUser(data.email, data.password);
+      // 1. Call Django login API (pass tenantSlug for subdomain-scoped login)
+      const response = await loginUser(data.email, data.password, tenantSlug ?? undefined);
 
       // 2. Set httpOnly cookies via the Next.js API route
       await fetch("/api/auth/set-tokens", {
@@ -139,11 +168,29 @@ export default function LoginPage() {
             className="text-2xl font-bold tracking-tight"
             style={{ color: "#0F172A", fontFamily: "Inter, sans-serif" }}
           >
-            LankaCommerce
+            {tenantInfo ? tenantInfo.name : "LankaCommerce"}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#64748B" }}>
-            Tenant ERP · Sign in to your account
+            {tenantInfo
+              ? "Sign in to your store dashboard"
+              : "Tenant ERP · Sign in to your account"}
           </p>
+          {/* "Not your store?" link — shown on tenant subdomains */}
+          {tenantSlug && (
+            <p className="mt-2 text-xs" style={{ color: "#94A3B8" }}>
+              Not {tenantInfo?.name ?? tenantSlug}?{" "}
+              <Link
+                href={
+                  typeof window !== "undefined"
+                    ? `http://${window.location.hostname.replace(`${tenantSlug}.`, "")}${window.location.port ? `:${window.location.port}` : ""}/login`
+                    : "/login"
+                }
+                className="underline hover:text-[#64748B]"
+              >
+                Go to main login
+              </Link>
+            </p>
+          )}
         </div>
 
         {/* Server error */}
@@ -303,6 +350,20 @@ export default function LoginPage() {
             Use PIN login
           </a>
         </p>
+
+        {/* Register link — shown only on main domain (no tenant context) */}
+        {!tenantSlug && (
+          <p className="mt-3 text-center text-sm" style={{ color: "#64748B" }}>
+            New to LankaCommerce?{" "}
+            <Link
+              href="/register"
+              className="font-medium hover:underline"
+              style={{ color: "#3B82F6" }}
+            >
+              Register your business
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,19 +1,25 @@
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.db.models import Sum
+from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import CustomUser
+from apps.accounts.serializers import CustomTokenObtainPairSerializer
+from apps.accounts.throttling import RegistrationRateThrottle
 from apps.tenants.models import Plan, Subscription, SubscriptionStatus, Tenant, TenantStatus
 from apps.tenants.serializers import (
     PlanSerializer,
     TenantDetailSerializer,
     TenantListSerializer,
     TenantProvisionSerializer,
+    TenantSelfRegisterSerializer,
 )
 from apps.tenants.services import tenant_service
 
@@ -31,7 +37,174 @@ class PlanListView(APIView):
         return Response(PlanSerializer(plans, many=True).data)
 
 
-# ─── Tenant management (SUPER_ADMIN only) ────────────────────────────────────
+# ─── Public: Tenant slug availability check ──────────────────────────────────
+
+
+class TenantSlugAvailabilityView(APIView):
+    """
+    GET /api/tenants/check-slug/?slug=<slug>
+    Public — used by the registration form to validate slug availability in real-time.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        slug = request.query_params.get("slug", "").strip()
+        if not slug:
+            return Response({"available": False, "detail": "Slug is required."}, status=status.HTTP_400_BAD_REQUEST)
+        available = not Tenant.objects.filter(slug=slug).exists()
+        return Response({"available": available, "slug": slug})
+
+
+# ─── Public: Tenant self-registration ────────────────────────────────────────
+
+def _try_update_hosts_file(slug: str) -> str | None:
+    """
+    Dev-only helper: attempt to add '<slug>.localhost 127.0.0.1' to the system
+    hosts file. Returns a human-readable hint string regardless of success.
+    Silently swallows all errors so registration never fails because of this.
+    """
+    import platform
+    from pathlib import Path
+
+    hosts_path = (
+        Path("C:/Windows/System32/drivers/etc/hosts")
+        if platform.system() == "Windows"
+        else Path("/etc/hosts")
+    )
+    entry = f"127.0.0.1 {slug}.localhost"
+
+    try:
+        content = hosts_path.read_text(encoding="utf-8")
+        if entry in content:
+            return f"Subdomain '{slug}.localhost' is already in your hosts file."
+        with hosts_path.open("a", encoding="utf-8") as f:
+            f.write(f"\n{entry}\n")
+        return f"Added '{entry}' to {hosts_path}. You can now visit http://{slug}.localhost:3000"
+    except PermissionError:
+        return (
+            f"Could not auto-update hosts file (permission denied). "
+            f"Run as administrator:\n"
+            f'  echo "{entry}" >> {hosts_path}'
+        )
+    except Exception as exc:  # pragma: no cover
+        return f"Could not auto-update hosts file: {exc}"
+
+
+class TenantSelfRegisterView(APIView):
+    """
+    POST /api/tenants/register/
+
+    Public self-service endpoint — lets a new business create their own tenant
+    without superadmin involvement. Creates the tenant, owner account, and a
+    30-day trial subscription in a single atomic transaction.
+
+    In development mode (DEBUG=True), automatically attempts to add the
+    subdomain entry to the local hosts file for convenient local testing.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [RegistrationRateThrottle]
+
+    def post(self, request):
+        serializer = TenantSelfRegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        d = serializer.validated_data
+
+        # ── Slug generation ───────────────────────────────────────────────────
+        raw_slug = d.get("slug") or slugify(d["store_name"])
+        slug = raw_slug
+        counter = 1
+        while Tenant.objects.filter(slug=slug).exists():
+            slug = f"{raw_slug}-{counter}"
+            counter += 1
+
+        # ── Find the first available active plan (trial) ──────────────────────
+        plan = Plan.objects.filter(is_active=True).order_by("sort_order").first()
+        if plan is None:
+            return Response(
+                {"detail": "No plans are available right now. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # ── Create tenant + owner + subscription atomically ───────────────────
+        try:
+            tenant = tenant_service.create_tenant(
+                store_name=d["store_name"],
+                slug=slug,
+                owner_email=d["owner_email"],
+                hashed_password=make_password(d["owner_password"]),
+                timezone_name=d.get("timezone", "Asia/Colombo"),
+                currency=d.get("currency", "LKR"),
+                vat_rate=Decimal("18.00"),
+                sscl_rate=Decimal("2.50"),
+                plan_id=plan.id,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Issue JWT tokens for immediate login ──────────────────────────────
+        try:
+            owner = CustomUser.objects.get(email=d["owner_email"])
+            refresh = CustomTokenObtainPairSerializer.get_token(owner)
+            tokens = {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            }
+        except Exception:
+            tokens = None  # Registration succeeded; user must log in manually
+
+        # ── Dev: attempt to update the hosts file ─────────────────────────────
+        dev_hint = _try_update_hosts_file(slug) if settings.DEBUG else None
+
+        return Response(
+            {
+                "tenant": {
+                    "id": str(tenant.id),
+                    "name": tenant.name,
+                    "slug": tenant.slug,
+                },
+                "tokens": tokens,
+                "store_url": f"http://{slug}.localhost:3000",
+                "dev_hint": dev_hint,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ─── Public: Tenant info by slug (for branded login page) ────────────────────
+
+
+class TenantPublicInfoView(APIView):
+    """
+    GET /api/tenants/<slug>/public/
+
+    Returns non-sensitive tenant metadata needed to render the branded
+    login page on a tenant subdomain. No authentication required.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        try:
+            tenant = Tenant.objects.get(slug=slug, deleted_at__isnull=True)
+        except Tenant.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(
+            {
+                "id": str(tenant.id),
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "logo_url": tenant.logo_url,
+                "status": tenant.status,
+            }
+        )
+
+
+
 
 
 class IsSuperAdmin(IsAuthenticated):

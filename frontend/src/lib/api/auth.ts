@@ -71,15 +71,22 @@ export function isTokenExpired(payload: UserPayload): boolean {
 
 /**
  * Logs in with email and password.
+ * Pass `tenantSlug` when logging in from a tenant subdomain to scope the
+ * authentication to that tenant only.
  */
 export async function loginUser(
   email: string,
-  password: string
+  password: string,
+  tenantSlug?: string
 ): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE}/api/auth/login/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      ...(tenantSlug ? { tenant_slug: tenantSlug } : {}),
+    }),
     credentials: "include",
   });
 
@@ -207,3 +214,97 @@ export async function setUserPin(
     throw new Error(error.detail ?? "Failed to update PIN.");
   }
 }
+
+// ---------------------------------------------------------------------------
+// SaaS self-registration
+// ---------------------------------------------------------------------------
+
+export interface RegisterBusinessPayload {
+  store_name: string;
+  slug?: string;
+  owner_email: string;
+  owner_password: string;
+  timezone?: string;
+  currency?: string;
+}
+
+export interface RegisterBusinessResponse {
+  tenant: { id: string; name: string; slug: string };
+  tokens: { access: string; refresh: string } | null;
+  store_url: string;
+  dev_hint: string | null;
+}
+
+/**
+ * Self-register a new business on the platform.
+ * Returns tenant info, JWT tokens for immediate login, and the subdomain URL.
+ */
+export async function registerBusiness(
+  payload: RegisterBusinessPayload
+): Promise<RegisterBusinessResponse> {
+  const response = await fetch(`${API_BASE}/api/tenants/register/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status === 429) {
+    throw new Error("Too many registration attempts. Please wait before trying again.");
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({
+      detail: "Registration failed. Please try again.",
+    }));
+    const firstError =
+      error.detail ??
+      Object.values(error as Record<string, string[]>)
+        .flat()
+        .join(" ");
+    throw new Error(firstError ?? "Registration failed.");
+  }
+
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Tenant public info (for branded login pages on subdomains)
+// ---------------------------------------------------------------------------
+
+export interface TenantPublicInfo {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  status: string;
+}
+
+/**
+ * Fetches non-sensitive tenant metadata by slug.
+ * Used to render the branded login page on a tenant subdomain.
+ */
+export async function getTenantPublicInfo(slug: string): Promise<TenantPublicInfo | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/tenants/${slug}/public/`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Checks if a slug is available for registration.
+ */
+export async function checkSlugAvailability(
+  slug: string
+): Promise<{ available: boolean; slug: string }> {
+  const response = await fetch(
+    `${API_BASE}/api/tenants/check-slug/?slug=${encodeURIComponent(slug)}`
+  );
+  if (!response.ok) return { available: false, slug };
+  return response.json();
+}
+

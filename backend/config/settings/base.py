@@ -142,6 +142,7 @@ REST_FRAMEWORK = {
         "login": "10/15min",
         "pin_login": "10/15min",
         "forgot_password": "5/hour",
+        "registration": "5/hour",
         "anon": "100/minute",
         "user": "1000/minute",
     },

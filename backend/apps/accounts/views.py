@@ -36,6 +36,10 @@ class LoginView(TokenObtainPairView):
 
     Accepts { email, password } and returns JWT access + refresh tokens
     with LankaCommerce custom claims embedded.
+
+    Optional field: tenant_slug — when provided (e.g. from a subdomain login
+    page), the login is restricted to users belonging to that specific tenant.
+    SUPER_ADMIN accounts cannot log in through a tenant portal.
     """
 
     serializer_class = CustomTokenObtainPairSerializer
@@ -45,7 +49,31 @@ class LoginView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         email = request.data.get("email", "").lower().strip()
+        tenant_slug = request.data.get("tenant_slug", "").strip() or None
 
+        # ── Tenant-scoped login guard ─────────────────────────────────────────
+        # When a tenant_slug is supplied (e.g. from a subdomain login page),
+        # verify the user actually belongs to that tenant before proceeding.
+        if tenant_slug:
+            try:
+                candidate = CustomUser.objects.select_related("tenant").get(email=email)
+                if candidate.role == "SUPER_ADMIN":
+                    # SUPER_ADMIN cannot log in through a tenant portal
+                    audit_service.log_login_failed(email=email, request=request)
+                    return Response(
+                        {"detail": "Invalid email or password."},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+                if candidate.tenant is None or candidate.tenant.slug != tenant_slug:
+                    audit_service.log_login_failed(email=email, request=request)
+                    return Response(
+                        {"detail": "Invalid email or password."},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            except CustomUser.DoesNotExist:
+                pass  # Let the normal serializer validation surface the error
+
+        # ── Standard authentication ───────────────────────────────────────────
         try:
             serializer.is_valid(raise_exception=True)
         except Exception:
