@@ -39,6 +39,29 @@ const PUBLIC_ROUTES = [
   "/register",
 ];
 
+// Paths on a tenant subdomain that are routed to staff layouts (require JWT).
+// Everything else on a subdomain is a public webstore consumer route.
+const STAFF_PATH_PREFIXES = [
+  "/store",
+  "/login",
+  "/pin-login",
+  "/forgot-password",
+  "/reset-password",
+  "/suspended",
+  "/webstore-preview",
+  "/api",
+];
+
+/**
+ * Returns true if the path targets a staff / admin layout on a tenant subdomain.
+ * All other subdomain paths are forwarded to the (webstore) route group.
+ */
+function isStaffPath(pathname: string): boolean {
+  return STAFF_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
 const API_ROUTE_PREFIX = "/api/";
 
 const SUPERADMIN_ROUTES = ["/superadmin"];
@@ -223,23 +246,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(`http://${mainDomain}/register`));
     }
 
-    // Root "/" on a subdomain — redirect to login or dashboard depending on auth state
-    if (pathname === "/") {
-      const accessToken = request.cookies.get("access_token")?.value;
-      if (accessToken) {
-        try {
-          const { payload: verified } = await jwtVerify(accessToken, JWT_SECRET, {
-            algorithms: ["HS256"],
-          });
-          const p = verified as LankaCommerceJWTPayload;
-          const dest = getStoreRedirectPath(p.role);
-          return NextResponse.redirect(new URL(dest, request.url));
-        } catch {
-          // Token invalid — fall through to redirect to login
-        }
-      }
-      return NextResponse.redirect(new URL("/login", request.url));
+    // ── Webstore consumer routes ─────────────────────────────────────────────
+    // If the path does NOT target a staff/admin layout, treat it as a public
+    // consumer-facing webstore page. No JWT is required; just forward the
+    // x-tenant-slug header so Server Components can resolve the tenant.
+    if (!isStaffPath(pathname)) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-tenant-slug", subdomain);
+      return NextResponse.next({ request: { headers: requestHeaders } });
     }
+
+    // ── Staff / admin routes below ────────────────────────────────────────────
 
     // Login page on subdomain — let it through with the tenant slug header so
     // the page component can fetch tenant branding and scope the login call.
