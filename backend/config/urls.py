@@ -37,4 +37,5 @@ urlpatterns = [
     path("api/reports/", include("apps.reports.urls")),
     path("api/billing/", include("apps.billing.urls")),
     path("api/webhooks/", include("apps.webhooks.urls")),
+    path("api/webstore/", include("apps.webstore.urls", namespace="webstore")),
 ]

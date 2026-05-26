@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.billing",
     "apps.webhooks",
     "apps.health",
+    "apps.webstore",
 ]
 
 MIDDLEWARE = [

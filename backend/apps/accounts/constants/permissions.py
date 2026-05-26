@@ -104,6 +104,14 @@ class PERMISSIONS:
     # Audit Log
     AUDIT_VIEW = "audit.view"
 
+    # Webstore
+    WEBSTORE_ACCESS = "webstore.access"
+    WEBSTORE_MANAGE = "webstore.manage"
+    WEBSTORE_CUSTOMIZE = "webstore.customize"
+    WEBSTORE_ORDERS_VIEW = "webstore.orders.view"
+    WEBSTORE_ORDERS_MANAGE = "webstore.orders.manage"
+    WEBSTORE_CUSTOMERS_VIEW = "webstore.customers.view"
+
 
 # All permissions as a flat list (used for validation and seeding)
 ALL_PERMISSIONS: list[str] = [
@@ -173,6 +181,12 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         PERMISSIONS.SETTINGS_VIEW,
         PERMISSIONS.SETTINGS_EDIT,
         PERMISSIONS.AUDIT_VIEW,
+        PERMISSIONS.WEBSTORE_ACCESS,
+        PERMISSIONS.WEBSTORE_MANAGE,
+        PERMISSIONS.WEBSTORE_CUSTOMIZE,
+        PERMISSIONS.WEBSTORE_ORDERS_VIEW,
+        PERMISSIONS.WEBSTORE_ORDERS_MANAGE,
+        PERMISSIONS.WEBSTORE_CUSTOMERS_VIEW,
     ],
 
     "MANAGER": [
@@ -213,6 +227,12 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         PERMISSIONS.PROMOTIONS_EDIT,
         PERMISSIONS.SETTINGS_VIEW,
         PERMISSIONS.AUDIT_VIEW,
+        PERMISSIONS.WEBSTORE_ACCESS,
+        PERMISSIONS.WEBSTORE_MANAGE,
+        PERMISSIONS.WEBSTORE_CUSTOMIZE,
+        PERMISSIONS.WEBSTORE_ORDERS_VIEW,
+        PERMISSIONS.WEBSTORE_ORDERS_MANAGE,
+        PERMISSIONS.WEBSTORE_CUSTOMERS_VIEW,
     ],
 
     "CASHIER": [
@@ -228,6 +248,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         PERMISSIONS.PAYMENTS_PROCESS,
         PERMISSIONS.CUSTOMERS_VIEW,
         PERMISSIONS.CUSTOMERS_CREATE,
+        PERMISSIONS.WEBSTORE_ORDERS_VIEW,
     ],
 
     "STOCK_CLERK": [
