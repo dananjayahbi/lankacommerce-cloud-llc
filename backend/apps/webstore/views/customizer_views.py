@@ -17,9 +17,11 @@ DRAFT config semantics:
   - POST /discard-draft/ deletes the DRAFT.
 """
 
+import copy
 import logging
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -129,13 +131,9 @@ class DraftConfigView(APIView):
         try:
             if "config" in data:
                 # Mode 1 — full replacement
-                import copy  # noqa: PLC0415
-                from django.db import transaction  # noqa: PLC0415
-
                 with transaction.atomic():
-                    from apps.webstore.models import TenantThemeConfig as _TTC  # noqa: PLC0415
                     draft = (
-                        _TTC.objects.select_for_update()
+                        TenantThemeConfig.objects.select_for_update()
                         .filter(tenant=tenant, status=ThemeConfigStatus.DRAFT)
                         .first()
                     )

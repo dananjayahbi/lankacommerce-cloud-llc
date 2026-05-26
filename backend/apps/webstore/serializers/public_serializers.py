@@ -26,6 +26,7 @@ from apps.webstore.models import (
     WebstorePage,
     WebstoreTheme,
 )
+from apps.webstore.services.collection_service import get_collection_product_count
 
 
 # ---------------------------------------------------------------------------
@@ -248,11 +249,7 @@ class PublicCollectionSummarySerializer(serializers.ModelSerializer):
         return obj.description[:150] if obj.description else ""
 
     def get_product_count(self, obj: WebstoreCollection) -> int:
-        # Manual: length of the explicit product ids list.
-        # Automated: 0 — accurate count requires full query resolution.
-        if obj.collection_type == "manual":
-            return len(obj.manual_product_ids or [])
-        return 0
+        return get_collection_product_count(obj)
 
 
 class PublicCollectionDetailSerializer(serializers.ModelSerializer):

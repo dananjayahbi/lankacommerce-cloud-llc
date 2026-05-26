@@ -528,6 +528,7 @@ class WebstoreOrder(models.Model):
         choices=[
             ("unpaid", "Unpaid"),
             ("paid", "Paid"),
+            ("partially_paid", "Partially Paid"),
             ("refunded", "Refunded"),
         ],
         default="unpaid",
@@ -561,6 +562,9 @@ class WebstoreOrder(models.Model):
     # Payment gateway fields
     payment_reference = models.CharField(max_length=255, blank=True)
     payment_gateway = models.CharField(max_length=50, blank=True)
+    # Shipping tracking (populated when order is shipped)
+    tracking_number = models.CharField(max_length=255, blank=True)
+    tracking_carrier = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # Soft delete

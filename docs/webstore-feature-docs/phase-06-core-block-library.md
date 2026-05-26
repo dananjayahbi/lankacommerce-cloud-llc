@@ -1,5 +1,6 @@
 # Phase 6: Core Block Library
 
+
 **Phase:** 6 of 10  
 **Depends on:** Phase 1 (block type definitions), Phase 5 (types.ts from the customizer; the iFrame preview relies on these components)  
 **Unlocks:** Phase 7 (the consumer storefront pages use the ThemeRenderer + these block components)  

@@ -112,9 +112,9 @@ class TenantWebstoreSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_storefront_domain(self, value):
-        """Domain must be globally unique across all tenants."""
+        """Domain must be globally unique across all tenants. Convert empty string to None."""
         if not value:
-            return value
+            return None
         qs = TenantWebstore.objects.filter(storefront_domain=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
