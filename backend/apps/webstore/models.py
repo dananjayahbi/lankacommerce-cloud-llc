@@ -75,6 +75,7 @@ class BlockType(models.TextChoices):
 class ThemeConfigStatus(models.TextChoices):
     ACTIVE = "ACTIVE", "Active (Live)"
     DRAFT = "DRAFT", "Draft (Being Edited)"
+    ARCHIVED = "ARCHIVED", "Archived"
 
 
 # ---------------------------------------------------------------------------

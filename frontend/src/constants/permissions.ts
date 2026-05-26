@@ -92,6 +92,16 @@ export const PERMISSIONS = {
 
   // Audit
   AUDIT_VIEW: "audit.view",
+
+  // Webstore
+  WEBSTORE_ACCESS: "webstore.access",
+  WEBSTORE_MANAGE: "webstore.manage",
+  WEBSTORE_ORDERS_VIEW: "webstore.orders.view",
+  WEBSTORE_ORDERS_MANAGE: "webstore.orders.manage",
+  WEBSTORE_THEMES_MANAGE: "webstore.themes.manage",
+  WEBSTORE_MENUS_MANAGE: "webstore.menus.manage",
+  WEBSTORE_COLLECTIONS_MANAGE: "webstore.collections.manage",
+  WEBSTORE_PAGES_MANAGE: "webstore.pages.manage",
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

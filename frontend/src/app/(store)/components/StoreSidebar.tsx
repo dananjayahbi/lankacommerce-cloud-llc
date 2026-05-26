@@ -14,17 +14,26 @@ import {
   Tag,
   Truck,
   Wallet,
+  Globe,
+  Paintbrush,
+  Palette,
+  Menu,
+  Layers,
+  FileText,
+  ShoppingBag,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import { PERMISSIONS } from "@/constants/permissions";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   roles?: string[];
+  permission?: string;
 }
 
-const NAV: NavItem[] = [
+const MAIN_NAV: NavItem[] = [
   { href: "/store/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/store/pos", label: "Point of Sale", icon: ShoppingCart },
   { href: "/store/inventory", label: "Inventory", icon: Package },
@@ -32,6 +41,20 @@ const NAV: NavItem[] = [
   { href: "/store/suppliers", label: "Suppliers", icon: Truck, roles: ["OWNER", "MANAGER"] },
   { href: "/store/staff", label: "Staff", icon: UserCircle, roles: ["OWNER", "MANAGER"] },
   { href: "/store/promotions", label: "Promotions", icon: Tag, roles: ["OWNER", "MANAGER"] },
+];
+
+const WEBSTORE_NAV: NavItem[] = [
+  { href: "/store/webstore", label: "Overview", icon: Globe },
+  { href: "/store/webstore/customize", label: "Customize", icon: Paintbrush },
+  { href: "/store/webstore/themes", label: "Themes", icon: Palette },
+  { href: "/store/webstore/menus", label: "Menus", icon: Menu },
+  { href: "/store/webstore/collections", label: "Collections", icon: Layers },
+  { href: "/store/webstore/pages", label: "Pages", icon: FileText },
+  { href: "/store/webstore/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/store/webstore/settings", label: "Settings", icon: Settings },
+];
+
+const BOTTOM_NAV: NavItem[] = [
   { href: "/store/reports/profit-loss", label: "Reports", icon: BarChart2, roles: ["OWNER", "MANAGER"] },
   { href: "/store/billing", label: "Billing", icon: Wallet, roles: ["OWNER"] },
   { href: "/store/settings", label: "Settings", icon: Settings, roles: ["OWNER", "MANAGER"] },
@@ -43,17 +66,49 @@ export function StoreSidebar() {
   const clearUser = useAuthStore((s) => s.clearUser);
 
   const role = user?.role ?? "";
+  const permissions = user?.permissions ?? [];
 
-  const visibleNav = NAV.filter(
-    (item) => !item.roles || item.roles.includes(role)
+  const hasWebstore =
+    role === "SUPER_ADMIN" ||
+    permissions.includes(PERMISSIONS.WEBSTORE_ACCESS);
+
+  const visibleMain = MAIN_NAV.filter(
+    (item) => !item.roles || item.roles.includes(role),
+  );
+  const visibleBottom = BOTTOM_NAV.filter(
+    (item) => !item.roles || item.roles.includes(role),
   );
 
+  function isActive(href: string) {
+    if (href === "/store/dashboard") return pathname === href;
+    if (href === "/store/webstore") return pathname === href;
+    return pathname.startsWith(href);
+  }
+
   function handleLogout() {
-    // Clear httpOnly cookies via API route, then redirect
     fetch("/api/auth/sign-out", { method: "POST" }).finally(() => {
       clearUser();
       window.location.href = "/login";
     });
+  }
+
+  function renderNavItem(item: NavItem) {
+    const Icon = item.icon;
+    const active = isActive(item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+          active
+            ? "bg-orange-50 text-[#F97316] font-medium border-l-4 border-[#F97316] pl-2"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        }`}
+      >
+        <Icon size={16} />
+        {item.label}
+      </Link>
+    );
   }
 
   return (
@@ -74,29 +129,33 @@ export function StoreSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {visibleNav.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            item.href === "/store/dashboard"
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {/* Main navigation */}
+        {visibleMain.map(renderNavItem)}
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                isActive
-                  ? "bg-orange-50 text-[#F97316] font-medium border-l-4 border-[#F97316] pl-2"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <Icon size={16} />
-              {item.label}
-            </Link>
-          );
-        })}
+        {/* Webstore group */}
+        {hasWebstore && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                Webstore
+              </p>
+            </div>
+            {WEBSTORE_NAV.map(renderNavItem)}
+          </>
+        )}
+
+        {/* Bottom nav (reports, billing, settings) */}
+        {visibleBottom.length > 0 && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                Account
+              </p>
+            </div>
+            {visibleBottom.map(renderNavItem)}
+          </>
+        )}
       </nav>
 
       {/* Footer */}
