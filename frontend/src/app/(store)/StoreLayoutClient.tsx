@@ -22,8 +22,29 @@ export function StoreLayoutClient({
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
 
-  // Hydrate the auth store on initial mount if the user is not yet set
-  // (e.g., after a page refresh where Zustand in-memory state is cleared)
+  // Hydrate synchronously on first render when the store is empty.
+  // This avoids a flash where the sidebar shows fewer items or pages show
+  // "no permission" before the useEffect fires.
+  if (!user && accessToken) {
+    try {
+      const payload = jwtDecode<UserPayload>(accessToken);
+      setUser(
+        {
+          user_id: payload.user_id,
+          email: payload.email,
+          role: payload.role as UserPayload["role"],
+          permissions: payload.permissions ?? [],
+          tenant_id: payload.tenant_id,
+          session_version: payload.session_version,
+        },
+        accessToken,
+      );
+    } catch {
+      // Token could not be decoded — middleware will handle redirection
+    }
+  }
+
+  // Keep in sync if accessToken prop changes (e.g. after token refresh)
   useEffect(() => {
     if (!user && accessToken) {
       try {

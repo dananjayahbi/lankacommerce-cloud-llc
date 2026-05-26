@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.db.models import Q
 
+from apps.accounts.constants.permissions import ROLE_PERMISSIONS
 from apps.accounts.models import AuditLog, CustomUser
 from apps.tenants.models import Plan, Subscription, SubscriptionStatus, Tenant, TenantStatus
 
@@ -135,6 +136,7 @@ def create_tenant(
         role="OWNER",
         is_active=True,
         tenant=tenant,
+        permissions_list=ROLE_PERMISSIONS.get("OWNER", []),
     )
 
     now = datetime.now(tz=timezone.utc)
