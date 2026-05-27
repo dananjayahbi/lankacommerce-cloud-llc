@@ -16,7 +16,6 @@ import copy
 import logging
 from datetime import timezone as dt_timezone
 
-import requests
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -69,35 +68,20 @@ def _deep_merge(base: dict, updates: dict) -> dict:
     return result
 
 
+def _dispatch_revalidation(tenant) -> None:
+    """
+    Delegates full-storefront cache revalidation to the revalidation service.
+    Called via transaction.on_commit() so a failure never rolls back a publish.
+    """
+    from apps.webstore.services.revalidation_service import trigger_full_revalidation
+
+    tenant_slug = getattr(tenant, "slug", str(tenant.pk))
+    trigger_full_revalidation(tenant_slug)
+
+
 def _try_invalidate_nextjs_cache(tenant) -> None:
-    """
-    Calls the Next.js revalidation webhook to bust SSR caches after publish.
-    Failure is logged but never propagates — it must not interrupt the publish.
-    """
-    revalidation_url = getattr(settings, "NEXTJS_REVALIDATION_URL", None)
-    revalidation_secret = getattr(settings, "NEXTJS_REVALIDATION_SECRET", None)
-    if not revalidation_url:
-        return
-    try:
-        tenant_slug = getattr(tenant, "slug", str(tenant.pk))
-        response = requests.post(
-            revalidation_url,
-            json={"tenant_slug": tenant_slug},
-            headers={"x-revalidation-secret": revalidation_secret or ""},
-            timeout=5,
-        )
-        if not response.ok:
-            logger.warning(
-                "Next.js revalidation returned %s for tenant %s",
-                response.status_code,
-                tenant_slug,
-            )
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "Failed to call Next.js revalidation API for tenant %s: %s",
-            getattr(tenant, "slug", tenant.pk),
-            exc,
-        )
+    """Legacy shim — kept for backwards compatibility. Delegates to revalidation service."""
+    _dispatch_revalidation(tenant)
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +163,7 @@ def publish_draft(tenant) -> TenantThemeConfig:
 
     # Step 4 — cache invalidation (outside the transaction block so a failure
     # here never rolls back the publish)
-    transaction.on_commit(lambda: _try_invalidate_nextjs_cache(tenant))
+    transaction.on_commit(lambda: _dispatch_revalidation(tenant))
 
     return draft
 

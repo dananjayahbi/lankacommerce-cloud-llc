@@ -3,12 +3,15 @@ from django.contrib import admin
 from .models import (
     TenantThemeConfig,
     TenantWebstore,
+    WebstoreAnalyticsEvent,
+    WebstoreBlogPost,
     WebstoreBlock,
     WebstoreCollection,
     WebstoreCustomer,
     WebstoreMenu,
     WebstoreOrder,
     WebstorePage,
+    WebstoreProductReview,
     WebstoreTheme,
 )
 
@@ -155,3 +158,66 @@ class WebstoreOrderAdmin(admin.ModelAdmin):
         "payment_reference",
     )
     readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(WebstoreBlogPost)
+class WebstoreBlogPostAdmin(admin.ModelAdmin):
+    list_display = (
+        "tenant",
+        "title",
+        "handle",
+        "author_name",
+        "is_published",
+        "published_at",
+        "created_at",
+    )
+    list_filter = ("is_published", "tenant")
+    search_fields = ("title", "handle", "author_name", "tenant__name", "tenant__slug")
+    readonly_fields = ("id", "created_at", "updated_at")
+    prepopulated_fields = {"handle": ("title",)}
+    date_hierarchy = "created_at"
+
+
+@admin.register(WebstoreProductReview)
+class WebstoreProductReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "tenant",
+        "product",
+        "reviewer_name",
+        "rating",
+        "is_approved",
+        "is_verified_purchase",
+        "created_at",
+    )
+    list_filter = ("is_approved", "is_verified_purchase", "rating", "tenant")
+    search_fields = (
+        "reviewer_name",
+        "reviewer_email",
+        "title",
+        "tenant__name",
+        "product__name",
+    )
+    readonly_fields = ("id", "created_at", "is_verified_purchase")
+    actions = ["approve_reviews", "reject_reviews"]
+
+    @admin.action(description="Approve selected reviews")
+    def approve_reviews(self, request, queryset):
+        queryset.update(is_approved=True)
+
+    @admin.action(description="Reject selected reviews")
+    def reject_reviews(self, request, queryset):
+        queryset.update(is_approved=False)
+
+
+@admin.register(WebstoreAnalyticsEvent)
+class WebstoreAnalyticsEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "tenant",
+        "event_type",
+        "page_type",
+        "page_handle",
+        "created_at",
+    )
+    list_filter = ("event_type", "page_type", "tenant")
+    readonly_fields = ("id", "created_at")
+    date_hierarchy = "created_at"

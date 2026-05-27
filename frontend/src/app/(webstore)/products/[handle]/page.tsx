@@ -21,12 +21,13 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { ThemeRenderer } from "@/lib/webstore/themeRenderer";
 import type { TenantData, ProductSummary } from "@/lib/webstore/themeRenderer";
 import type { ThemeConfig } from "@/lib/webstore/types";
+import { JsonLd } from "@/components/webstore/seo/JsonLd";
 
 // ---------------------------------------------------------------------------
-// ISR
+// ISR — reduced to 1 hour; on-demand revalidation handles freshness
 // ---------------------------------------------------------------------------
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 // ---------------------------------------------------------------------------
 // API types
@@ -177,12 +178,35 @@ export default async function ProductDetailPage({ params }: Props) {
     menus: {},
   };
 
+  // Build Product JSON-LD structured data
+  const lowestPrice = (product as unknown as { price_range?: { min?: string | number } }).price_range?.min ?? "0";
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: (product as unknown as { description?: string }).description ?? "",
+    image: (product as unknown as { featured_image_url?: string }).featured_image_url ?? undefined,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: config.currency ?? "LKR",
+      price: String(lowestPrice),
+      availability:
+        (product as unknown as { available_for_sale?: boolean }).available_for_sale !== false
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      url: `https://${config.slug}.lankacommerce.com/products/${product.handle}`,
+    },
+  };
+
   return (
-    <ThemeRenderer
-      themeConfig={config.theme_config}
-      template="product"
-      tenantData={tenantData}
-      tenantSlug={slug}
-    />
+    <>
+      <JsonLd schema={productSchema} />
+      <ThemeRenderer
+        themeConfig={config.theme_config}
+        template="product"
+        tenantData={tenantData}
+        tenantSlug={slug}
+      />
+    </>
   );
 }

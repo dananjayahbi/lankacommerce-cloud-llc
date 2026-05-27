@@ -26,6 +26,7 @@ import type { ThemeConfig } from "@/lib/webstore/types";
 import { buildThemeCssVars } from "@/lib/webstore/themeRenderer";
 import { CartDrawer } from "@/components/webstore/cart/CartDrawer";
 import { CartStoreProvider } from "@/components/webstore/cart/CartStoreProvider";
+import { AnalyticsTracker } from "@/components/webstore/AnalyticsTracker";
 
 // ---------------------------------------------------------------------------
 // API types for the public config endpoint
@@ -166,6 +167,7 @@ export default async function WebstoreLayout({
         className="ws-storefront min-h-screen flex flex-col"
         style={cssVars as React.CSSProperties}
       >
+        <AnalyticsTracker tenantSlug={tenantSlug} />
         {children}
         <CartDrawer />
       </div>

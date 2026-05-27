@@ -586,3 +586,164 @@ class WebstoreOrder(models.Model):
 
     def __str__(self) -> str:
         return f"{self.order_number} ({self.tenant})"
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Blog
+# ---------------------------------------------------------------------------
+
+
+class WebstoreBlogPost(models.Model):
+    """
+    Merchant-authored blog post for the consumer-facing storefront.
+
+    Content is stored as sanitized HTML in body_html. The merchant's CMS
+    (Phase 4 admin UI) uses Tiptap to produce this HTML.
+
+    The handle is a URL slug unique per tenant (not globally unique because
+    different tenants may legitimately use the same handle).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        "tenants.Tenant",
+        on_delete=models.CASCADE,
+        related_name="blog_posts",
+    )
+    title = models.CharField(max_length=255)
+    handle = models.SlugField(max_length=255)
+    author_name = models.CharField(max_length=100)
+    # Sanitized HTML — the API layer must sanitize before storage
+    body_html = models.TextField()
+    # Short summary — auto-populated from body if blank
+    excerpt = models.TextField(max_length=500, blank=True)
+    featured_image_url = models.URLField(blank=True)
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    # List of tag strings, e.g. ["news", "products", "tutorial"]
+    tags = models.JSONField(default=list)
+    # SEO overrides
+    seo_title = models.CharField(max_length=60, blank=True)
+    seo_description = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "webstore_blog_post"
+        unique_together = [["tenant", "handle"]]
+        ordering = ["-published_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "is_published", "-published_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.title} ({self.tenant})"
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Product Reviews
+# ---------------------------------------------------------------------------
+
+
+class WebstoreProductReview(models.Model):
+    """
+    Consumer-submitted product review with admin moderation workflow.
+
+    Reviews are NOT displayed publicly until is_approved=True. Admin staff
+    approve or reject pending reviews via the tenant admin UI.
+
+    The reviewer_email is stored for follow-up but never exposed in public
+    API responses. is_verified_purchase is set automatically when the reviewer
+    has a confirmed order containing the product.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        "tenants.Tenant",
+        on_delete=models.CASCADE,
+        related_name="product_reviews",
+    )
+    product = models.ForeignKey(
+        "catalog.Product",
+        on_delete=models.CASCADE,
+        related_name="webstore_reviews",
+    )
+    # Nullable — review can be submitted as a guest (no WebstoreCustomer account)
+    customer = models.ForeignKey(
+        WebstoreCustomer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviews",
+    )
+    reviewer_name = models.CharField(max_length=100)
+    # Private — for follow-up only. Never exposed in public API.
+    reviewer_email = models.EmailField()
+    # 1–5 star rating
+    rating = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=255)
+    body = models.TextField()
+    # Default False — admin must approve before display
+    is_approved = models.BooleanField(default=False)
+    # True if the reviewer has a confirmed order containing this product
+    is_verified_purchase = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "webstore_product_review"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["product", "is_approved", "-created_at"]),
+            models.Index(fields=["tenant", "is_approved"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="webstore_review_rating_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Review by {self.reviewer_name} for product {self.product_id} ({self.rating}★)"
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Analytics
+# ---------------------------------------------------------------------------
+
+
+class WebstoreAnalyticsEvent(models.Model):
+    """
+    Lightweight page view analytics for merchant dashboards.
+
+    Privacy notes:
+      - NO IP addresses stored (GDPR compliance).
+      - session_id is a client-generated anonymous UUID — not linked to any user.
+      - Do NOT add a `user` FK here; analytics must remain anonymous.
+    """
+
+    # BigAutoField primary key for high-volume insert performance
+    id = models.BigAutoField(primary_key=True)
+    tenant = models.ForeignKey(
+        "tenants.Tenant",
+        on_delete=models.CASCADE,
+        related_name="analytics_events",
+        db_index=True,
+    )
+    event_type = models.CharField(max_length=20, default="pageview")
+    page_type = models.CharField(max_length=50)
+    page_handle = models.CharField(max_length=200, blank=True)
+    # Anonymous client-generated UUID for session grouping
+    session_id = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "webstore_analytics_event"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "event_type", "-created_at"]),
+            models.Index(fields=["tenant", "page_type", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event_type} / {self.page_type} / {self.page_handle}"

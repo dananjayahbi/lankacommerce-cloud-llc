@@ -780,3 +780,348 @@ def consumer_order_list(request, slug: str) -> Response:
     )
 
     return Response({"orders": OrderSummarySerializer(orders, many=True).data})
+
+
+# ---------------------------------------------------------------------------
+# Custom domain resolution  (Phase 10)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["GET"])
+@permission_classes([_AllowAny])
+def resolve_domain(request) -> Response:
+    """
+    GET /api/webstore/resolve-domain/?domain=<hostname>
+
+    Looks up TenantWebstore by storefront_domain and returns the tenant slug.
+    Used by the Next.js middleware to map custom domains → tenant slugs.
+
+    Returns:
+      200  { "tenant_slug": "...", "tenant_id": "..." }   if found
+      400  { "detail": "Missing domain parameter." }       if no domain param
+      404  { "detail": "Domain not found." }               if not registered
+
+    This endpoint is intentionally public — it only returns slugs, never
+    sensitive data. Abuse is mitigated by CDN-level rate limiting.
+    """
+    domain = request.query_params.get("domain", "").strip().lower()
+    if not domain:
+        return Response(
+            {"detail": "Missing domain parameter."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        webstore = TenantWebstore.objects.select_related("tenant").get(
+            storefront_domain=domain,
+            is_enabled=True,
+        )
+    except TenantWebstore.DoesNotExist:
+        return Response({"detail": "Domain not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(
+        {
+            "tenant_slug": webstore.tenant.slug,
+            "tenant_id": str(webstore.tenant.id),
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Password-protected store verification  (Phase 10)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["POST"])
+@permission_classes([_AllowAny])
+def verify_store_password(request, slug: str) -> Response:
+    """
+    POST /api/webstore/public/<slug>/verify-password/
+
+    Body: { "password": "<plain-text-password>" }
+
+    Verifies the submitted password against the bcrypt hash stored in
+    TenantWebstore.store_password_hash. Never returns the hash.
+
+    Returns:
+      200  { "verified": true }   on success
+      401  { "verified": false }  on wrong password
+      404                         if store is not password-protected or not found
+    """
+    tenant = storefront_service.resolve_tenant(slug)
+
+    try:
+        webstore = tenant.webstore
+    except TenantWebstore.DoesNotExist:
+        raise Http404("Store not found")
+
+    if not webstore.is_password_protected:
+        raise Http404("Store is not password protected")
+
+    submitted = request.data.get("password", "")
+    if not submitted or not isinstance(submitted, str):
+        return Response(
+            {"detail": "Missing password."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if webstore.store_password_hash and check_password(submitted, webstore.store_password_hash):
+        return Response({"verified": True}, status=status.HTTP_200_OK)
+
+    return Response({"verified": False}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+# ---------------------------------------------------------------------------
+# Blog public views  (Phase 10)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["GET"])
+@permission_classes([_AllowAny])
+def blog_list(request, slug: str) -> Response:
+    """
+    GET /api/webstore/public/<slug>/blog/
+
+    Returns paginated list of published blog posts, sorted by published_at DESC.
+    """
+    from apps.webstore.models import WebstoreBlogPost
+
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    page, page_size = _parse_page_params(request)
+
+    qs = WebstoreBlogPost.objects.filter(
+        tenant=tenant, is_published=True
+    ).order_by("-published_at")
+
+    total = qs.count()
+    offset = (page - 1) * page_size
+    posts = qs[offset: offset + page_size]
+
+    data = [
+        {
+            "id": str(p.id),
+            "title": p.title,
+            "handle": p.handle,
+            "author_name": p.author_name,
+            "excerpt": p.excerpt,
+            "featured_image_url": p.featured_image_url,
+            "published_at": p.published_at,
+            "tags": p.tags,
+            "seo_title": p.seo_title or p.title,
+            "seo_description": p.seo_description or p.excerpt,
+        }
+        for p in posts
+    ]
+
+    return Response({"posts": data, "meta": _pagination_meta(total, page, page_size)})
+
+
+@api_view(["GET"])
+@permission_classes([_AllowAny])
+def blog_detail(request, slug: str, handle: str) -> Response:
+    """
+    GET /api/webstore/public/<slug>/blog/<handle>/
+
+    Returns a single published blog post by handle.
+    """
+    from apps.webstore.models import WebstoreBlogPost
+
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    try:
+        post = WebstoreBlogPost.objects.get(
+            tenant=tenant, handle=handle, is_published=True
+        )
+    except WebstoreBlogPost.DoesNotExist:
+        raise Http404("Blog post not found")
+
+    return Response(
+        {
+            "id": str(post.id),
+            "title": post.title,
+            "handle": post.handle,
+            "author_name": post.author_name,
+            "body_html": post.body_html,
+            "excerpt": post.excerpt,
+            "featured_image_url": post.featured_image_url,
+            "published_at": post.published_at,
+            "tags": post.tags,
+            "seo_title": post.seo_title or post.title,
+            "seo_description": post.seo_description or post.excerpt,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Product reviews public views  (Phase 10)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["GET", "POST"])
+@permission_classes([_AllowAny])
+def product_reviews(request, slug: str, handle: str) -> Response:
+    """
+    GET  /api/webstore/public/<slug>/products/<handle>/reviews/
+    POST /api/webstore/public/<slug>/products/<handle>/reviews/
+
+    GET:  Returns paginated list of approved reviews for a product.
+    POST: Submit a new review. Requires reviewer_name, reviewer_email,
+          rating (1-5), title, body.
+    """
+    from apps.webstore.models import WebstoreProductReview
+    from apps.catalog.models import Product
+
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    # Resolve product
+    try:
+        from django.core.validators import validate_uuid
+        validate_uuid = __import__("uuid")
+        product_uuid = str(validate_uuid.UUID(handle))
+        product = Product.objects.get(id=product_uuid, tenant=tenant, is_archived=False, deleted_at=None)
+    except Exception:
+        raise Http404("Product not found")
+
+    if request.method == "GET":
+        page, page_size = _parse_page_params(request)
+        qs = WebstoreProductReview.objects.filter(
+            product=product, is_approved=True
+        ).order_by("-created_at")
+        total = qs.count()
+        offset = (page - 1) * page_size
+        reviews = qs[offset: offset + page_size]
+
+        # Aggregate rating summary
+        from django.db.models import Avg, Count
+        summary = WebstoreProductReview.objects.filter(
+            product=product, is_approved=True
+        ).aggregate(avg_rating=Avg("rating"), total_count=Count("id"))
+
+        data = [
+            {
+                "id": str(r.id),
+                "reviewer_name": r.reviewer_name,
+                "rating": r.rating,
+                "title": r.title,
+                "body": r.body,
+                "is_verified_purchase": r.is_verified_purchase,
+                "created_at": r.created_at,
+            }
+            for r in reviews
+        ]
+        return Response(
+            {
+                "reviews": data,
+                "meta": _pagination_meta(total, page, page_size),
+                "summary": {
+                    "average_rating": round(summary["avg_rating"] or 0, 1),
+                    "total_reviews": summary["total_count"] or 0,
+                },
+            }
+        )
+
+    # POST — submit a review
+    data = request.data
+    required = ["reviewer_name", "reviewer_email", "rating", "title", "body"]
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return Response(
+            {"detail": f"Missing fields: {', '.join(missing)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    rating = data.get("rating")
+    try:
+        rating = int(rating)
+        if not 1 <= rating <= 5:
+            raise ValueError
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "Rating must be an integer between 1 and 5."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Determine if consumer is logged in and has a verified purchase
+    customer = _get_consumer_from_request(request, tenant)
+    is_verified = False
+    if customer:
+        from apps.webstore.models import WebstoreOrder
+        is_verified = WebstoreOrder.objects.filter(
+            tenant=tenant,
+            customer=customer,
+            status__in=["confirmed", "processing", "shipped", "delivered"],
+            deleted_at__isnull=True,
+        ).filter(
+            # Check line_items JSON for this product (simple string search)
+            line_items__contains=[{"product_id": str(product.id)}],
+        ).exists()
+
+    review = WebstoreProductReview.objects.create(
+        tenant=tenant,
+        product=product,
+        customer=customer,
+        reviewer_name=str(data["reviewer_name"])[:100],
+        reviewer_email=str(data["reviewer_email"])[:254],
+        rating=rating,
+        title=str(data.get("title", ""))[:255],
+        body=str(data.get("body", "")),
+        is_approved=False,
+        is_verified_purchase=is_verified,
+    )
+
+    return Response(
+        {"id": str(review.id), "message": "Review submitted and pending approval."},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Analytics page view  (Phase 10)
+# ---------------------------------------------------------------------------
+
+
+@api_view(["POST"])
+@permission_classes([_AllowAny])
+def analytics_pageview(request, slug: str) -> Response:
+    """
+    POST /api/webstore/public/<slug>/analytics/pageview/
+
+    Records an anonymous page view event.
+    Body: { page_type, page_handle, referrer (optional), session_id (optional) }
+    """
+    from apps.webstore.models import WebstoreAnalyticsEvent
+    import uuid as _uuid
+
+    # Only record in production mode to avoid polluting with dev traffic
+    analytics_enabled = request.query_params.get("force") == "1"
+    # Actual production gate happens on the frontend; backend always stores
+    # so the tenant gets accurate data regardless.
+
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    data = request.data
+    page_type = str(data.get("page_type", "unknown"))[:50]
+    page_handle = str(data.get("page_handle", ""))[:200]
+
+    session_id_raw = data.get("session_id")
+    session_id = None
+    if session_id_raw:
+        try:
+            session_id = _uuid.UUID(str(session_id_raw))
+        except ValueError:
+            pass
+
+    WebstoreAnalyticsEvent.objects.create(
+        tenant=tenant,
+        event_type="pageview",
+        page_type=page_type,
+        page_handle=page_handle,
+        session_id=session_id,
+    )
+
+    return Response({"recorded": True}, status=status.HTTP_201_CREATED)

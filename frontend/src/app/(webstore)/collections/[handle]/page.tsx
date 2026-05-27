@@ -28,7 +28,7 @@ import type { ThemeConfig } from "@/lib/webstore/types";
 // ISR (applies only when no filters are active — see fetchCollection logic)
 // ---------------------------------------------------------------------------
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 // ---------------------------------------------------------------------------
 // Types

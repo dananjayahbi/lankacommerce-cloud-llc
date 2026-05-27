@@ -15,6 +15,7 @@ Multi-table writes are wrapped in ``transaction.atomic()``.
 
 import copy
 import logging
+import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -986,3 +987,339 @@ class CustomerDetailView(APIView):
 
 customer_detail = CustomerDetailView.as_view()
 
+
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Blog tenant admin views
+# ---------------------------------------------------------------------------
+
+
+class BlogListCreateView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request) -> Response:
+        from apps.webstore.models import WebstoreBlogPost
+        posts = WebstoreBlogPost.objects.filter(tenant=_tenant(request)).order_by("-created_at")
+        data = [
+            {
+                "id": str(p.id),
+                "title": p.title,
+                "handle": p.handle,
+                "author_name": p.author_name,
+                "excerpt": p.excerpt,
+                "featured_image_url": p.featured_image_url,
+                "is_published": p.is_published,
+                "published_at": p.published_at,
+                "tags": p.tags,
+                "seo_title": p.seo_title,
+                "seo_description": p.seo_description,
+                "created_at": p.created_at,
+                "updated_at": p.updated_at,
+            }
+            for p in posts
+        ]
+        return Response({"posts": data})
+
+    def post(self, request: Request) -> Response:
+        from apps.webstore.models import WebstoreBlogPost
+        from django.utils.text import slugify as _slugify
+
+        tenant = _tenant(request)
+        d = request.data
+        title = str(d.get("title", "")).strip()
+        if not title:
+            return Response({"detail": "title is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        handle = str(d.get("handle", "") or _slugify(title))[:255]
+        # Ensure handle uniqueness within tenant
+        if WebstoreBlogPost.objects.filter(tenant=tenant, handle=handle).exists():
+            handle = f"{handle}-{str(uuid.uuid4())[:8]}"
+
+        post = WebstoreBlogPost.objects.create(
+            tenant=tenant,
+            title=title,
+            handle=handle,
+            author_name=str(d.get("author_name", ""))[:100],
+            body_html=str(d.get("body_html", "")),
+            excerpt=str(d.get("excerpt", ""))[:500],
+            featured_image_url=str(d.get("featured_image_url", ""))[:200],
+            tags=d.get("tags", []) if isinstance(d.get("tags"), list) else [],
+            seo_title=str(d.get("seo_title", ""))[:60],
+            seo_description=str(d.get("seo_description", ""))[:160],
+            is_published=False,
+        )
+        return Response({"id": str(post.id), "handle": post.handle}, status=status.HTTP_201_CREATED)
+
+
+blog_list_create = BlogListCreateView.as_view()
+
+
+class BlogDetailView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def _get_post(self, request, post_id):
+        from apps.webstore.models import WebstoreBlogPost
+        try:
+            return WebstoreBlogPost.objects.get(pk=post_id, tenant=_tenant(request))
+        except WebstoreBlogPost.DoesNotExist:
+            return None
+
+    def get(self, request: Request, post_id) -> Response:
+        post = self._get_post(request, post_id)
+        if not post:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "id": str(post.id),
+            "title": post.title,
+            "handle": post.handle,
+            "author_name": post.author_name,
+            "body_html": post.body_html,
+            "excerpt": post.excerpt,
+            "featured_image_url": post.featured_image_url,
+            "is_published": post.is_published,
+            "published_at": post.published_at,
+            "tags": post.tags,
+            "seo_title": post.seo_title,
+            "seo_description": post.seo_description,
+            "created_at": post.created_at,
+            "updated_at": post.updated_at,
+        })
+
+    def patch(self, request: Request, post_id) -> Response:
+        post = self._get_post(request, post_id)
+        if not post:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        d = request.data
+        updatable = ["title", "author_name", "body_html", "excerpt", "featured_image_url", "seo_title", "seo_description"]
+        for field in updatable:
+            if field in d:
+                setattr(post, field, d[field])
+        if "tags" in d and isinstance(d["tags"], list):
+            post.tags = d["tags"]
+        post.save()
+        return Response({"id": str(post.id)})
+
+    def delete(self, request: Request, post_id) -> Response:
+        post = self._get_post(request, post_id)
+        if not post:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        tenant_slug = getattr(_tenant(request), "slug", None)
+        post.delete()
+        if tenant_slug:
+            from apps.webstore.services.revalidation_service import trigger_blog_revalidation
+            transaction.on_commit(lambda: trigger_blog_revalidation(tenant_slug))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+blog_detail = BlogDetailView.as_view()
+
+
+class BlogPublishView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def patch(self, request: Request, post_id) -> Response:
+        from apps.webstore.models import WebstoreBlogPost
+        from django.utils import timezone as _tz
+        try:
+            post = WebstoreBlogPost.objects.get(pk=post_id, tenant=_tenant(request))
+        except WebstoreBlogPost.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get("action", "publish")
+        if action == "unpublish":
+            post.is_published = False
+            post.save(update_fields=["is_published", "updated_at"])
+        else:
+            if not post.is_published:
+                post.is_published = True
+                post.published_at = _tz.now()
+                post.save(update_fields=["is_published", "published_at", "updated_at"])
+
+        tenant_slug = getattr(_tenant(request), "slug", None)
+        if tenant_slug:
+            from apps.webstore.services.revalidation_service import trigger_blog_revalidation
+            transaction.on_commit(lambda: trigger_blog_revalidation(tenant_slug))
+
+        return Response({"id": str(post.id), "is_published": post.is_published})
+
+
+blog_publish = BlogPublishView.as_view()
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Product reviews moderation views
+# ---------------------------------------------------------------------------
+
+
+class ReviewListView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request) -> Response:
+        from apps.webstore.models import WebstoreProductReview
+        filter_status = request.query_params.get("status", "pending")
+        qs = WebstoreProductReview.objects.filter(tenant=_tenant(request)).select_related("product")
+
+        if filter_status == "pending":
+            qs = qs.filter(is_approved=False)
+        elif filter_status == "approved":
+            qs = qs.filter(is_approved=True)
+
+        qs = qs.order_by("-created_at")[:100]
+
+        data = [
+            {
+                "id": str(r.id),
+                "product_id": str(r.product_id),
+                "product_name": r.product.name if r.product else "",
+                "reviewer_name": r.reviewer_name,
+                "rating": r.rating,
+                "title": r.title,
+                "body": r.body[:200],
+                "is_approved": r.is_approved,
+                "is_verified_purchase": r.is_verified_purchase,
+                "created_at": r.created_at,
+            }
+            for r in qs
+        ]
+        return Response({"reviews": data})
+
+
+review_list = ReviewListView.as_view()
+
+
+class ReviewApproveView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def patch(self, request: Request, review_id) -> Response:
+        from apps.webstore.models import WebstoreProductReview
+        try:
+            review = WebstoreProductReview.objects.get(pk=review_id, tenant=_tenant(request))
+        except WebstoreProductReview.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        review.is_approved = True
+        review.save(update_fields=["is_approved"])
+        return Response({"id": str(review.id), "is_approved": True})
+
+
+review_approve = ReviewApproveView.as_view()
+
+
+class ReviewRejectView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def patch(self, request: Request, review_id) -> Response:
+        from apps.webstore.models import WebstoreProductReview
+        try:
+            review = WebstoreProductReview.objects.get(pk=review_id, tenant=_tenant(request))
+        except WebstoreProductReview.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        review.is_approved = False
+        review.save(update_fields=["is_approved"])
+        return Response({"id": str(review.id), "is_approved": False})
+
+
+review_reject = ReviewRejectView.as_view()
+
+
+class ReviewDeleteView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def delete(self, request: Request, review_id) -> Response:
+        from apps.webstore.models import WebstoreProductReview
+        try:
+            review = WebstoreProductReview.objects.get(pk=review_id, tenant=_tenant(request))
+        except WebstoreProductReview.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        review.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+review_delete = ReviewDeleteView.as_view()
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Analytics tenant summary view
+# ---------------------------------------------------------------------------
+
+
+class AnalyticsSummaryView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request) -> Response:
+        from apps.webstore.models import WebstoreAnalyticsEvent
+        from django.db.models import Count
+        from django.utils import timezone as _tz
+        import datetime
+
+        try:
+            days = min(90, max(1, int(request.query_params.get("days", 30))))
+        except (TypeError, ValueError):
+            days = 30
+
+        tenant = _tenant(request)
+        since = _tz.now() - datetime.timedelta(days=days)
+
+        qs = WebstoreAnalyticsEvent.objects.filter(
+            tenant=tenant,
+            event_type="pageview",
+            created_at__gte=since,
+        )
+
+        total_views = qs.count()
+
+        # Views by day (last N days)
+        from django.db.models.functions import TruncDate
+        views_by_day = list(
+            qs.annotate(date=TruncDate("created_at"))
+            .values("date")
+            .annotate(count=Count("id"))
+            .order_by("date")
+        )
+
+        # Top 10 most viewed products
+        top_products = list(
+            qs.filter(page_type="product")
+            .values("page_handle")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:10]
+        )
+
+        # Views by page type
+        by_page_type = list(
+            qs.values("page_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        # Top 5 referrers — not stored in Phase 10 model, skip for now
+        return Response(
+            {
+                "total_views": total_views,
+                "days": days,
+                "views_by_day": [
+                    {"date": str(row["date"]), "count": row["count"]}
+                    for row in views_by_day
+                ],
+                "top_products": [
+                    {"handle": row["page_handle"], "views": row["count"]}
+                    for row in top_products
+                ],
+                "by_page_type": [
+                    {"page_type": row["page_type"], "count": row["count"]}
+                    for row in by_page_type
+                ],
+            }
+        )
+
+
+analytics_summary = AnalyticsSummaryView.as_view()

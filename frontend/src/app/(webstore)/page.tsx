@@ -23,12 +23,13 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { ThemeRenderer } from "@/lib/webstore/themeRenderer";
 import type { TenantData, CollectionData } from "@/lib/webstore/themeRenderer";
 import type { ThemeConfig } from "@/lib/webstore/types";
+import { JsonLd } from "@/components/webstore/seo/JsonLd";
 
 // ---------------------------------------------------------------------------
-// ISR
+// ISR — reduced to 1 hour; on-demand revalidation handles freshness
 // ---------------------------------------------------------------------------
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 // ---------------------------------------------------------------------------
 // API types
@@ -193,12 +194,25 @@ export default async function WebstoreHomePage() {
     menus: {},
   };
 
+  // Organization JSON-LD for the store home page
+  const host = `${slug}.lankacommerce.com`;
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: config.tenant_name,
+    url: `https://${host}`,
+    logo: config.logo_url ?? undefined,
+  };
+
   return (
-    <ThemeRenderer
-      themeConfig={config.theme_config}
-      template="index"
-      tenantData={tenantData}
-      tenantSlug={slug}
-    />
+    <>
+      <JsonLd schema={orgSchema} />
+      <ThemeRenderer
+        themeConfig={config.theme_config}
+        template="index"
+        tenantData={tenantData}
+        tenantSlug={slug}
+      />
+    </>
   );
 }

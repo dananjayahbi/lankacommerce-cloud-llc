@@ -28,6 +28,58 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.DJANGO_JWT_SECRET ?? ""
 );
 
+// ---------------------------------------------------------------------------
+// Custom domain resolution cache (in-memory, 5-minute TTL)
+// ---------------------------------------------------------------------------
+
+interface DomainCacheEntry {
+  tenantSlug: string;
+  expiresAt: number;
+}
+
+const domainCache = new Map<string, DomainCacheEntry>();
+const DOMAIN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+const INTERNAL_API =
+  process.env.NEXT_INTERNAL_API_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://localhost:8000";
+
+/**
+ * Resolves a custom domain to a tenant slug by calling the backend
+ * domain resolution API. Results are cached for 5 minutes.
+ * Returns null if the domain is not registered.
+ */
+async function resolveCustomDomain(hostname: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = domainCache.get(hostname);
+  if (cached && cached.expiresAt > now) {
+    return cached.tenantSlug;
+  }
+
+  try {
+    const res = await fetch(
+      `${INTERNAL_API}/api/webstore/resolve-domain/?domain=${encodeURIComponent(hostname)}`,
+      { next: { revalidate: 0 } },
+    );
+    if (!res.ok) {
+      // Cache negative result briefly (30s) to avoid hammering the API
+      domainCache.set(hostname, { tenantSlug: "", expiresAt: now + 30_000 });
+      return null;
+    }
+    const data = (await res.json()) as { tenant_slug?: string };
+    if (!data.tenant_slug) return null;
+
+    domainCache.set(hostname, {
+      tenantSlug: data.tenant_slug,
+      expiresAt: now + DOMAIN_CACHE_TTL_MS,
+    });
+    return data.tenant_slug;
+  } catch {
+    return null;
+  }
+}
+
 // Routes that are always publicly accessible (no JWT required)
 const PUBLIC_ROUTES = [
   "/login",
@@ -345,6 +397,34 @@ export async function middleware(request: NextRequest) {
     }
 
     return applyRoleGuards(request, pathname, payload, subdomain);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CUSTOM DOMAIN CONTEXT
+  // Handles requests from merchants' own domains (e.g. www.mystore.lk)
+  // that are not subdomains of lankacommerce.com.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // A custom domain is any host that:
+  //  - has no recognizable subdomain (getSubdomain returned null)
+  //  - is not localhost, 127.0.0.1, or the main lankacommerce.com
+  //  - is not a staff path (store admin)
+  const bareHost = (hostname.split(":")[0] ?? "").toLowerCase();
+  const isKnownMainDomain =
+    bareHost === "localhost" ||
+    bareHost === "127.0.0.1" ||
+    bareHost === "lankacommerce.com" ||
+    bareHost === "www.lankacommerce.com";
+
+  if (!isKnownMainDomain && !isStaffPath(pathname)) {
+    const customTenantSlug = await resolveCustomDomain(bareHost);
+    if (customTenantSlug) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-tenant-slug", customTenantSlug);
+      requestHeaders.set("x-custom-domain", bareHost);
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
+    // Unknown custom domain — fall through to main domain handling
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ import { StorefrontChrome } from "@/components/webstore/layout/StorefrontChrome"
 // ISR
 // ---------------------------------------------------------------------------
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 // ---------------------------------------------------------------------------
 // Types

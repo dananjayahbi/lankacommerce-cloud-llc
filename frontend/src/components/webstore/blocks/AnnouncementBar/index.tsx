@@ -70,9 +70,13 @@ export function AnnouncementBar({
     if (map[dismissKey]) setDismissed(true);
   }, [dismissKey]);
 
-  // Auto-rotate
+  // Auto-rotate — disabled when user prefers reduced motion
   useEffect(() => {
     if (!enable_auto_rotate || announcements.length <= 1) return;
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) return;
     const ms = ((rotation_interval as number) ?? 10) * 1000;
     intervalRef.current = setInterval(() => {
       setActiveIndex((i) => (i + 1) % announcements.length);

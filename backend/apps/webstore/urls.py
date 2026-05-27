@@ -99,6 +99,41 @@ public_patterns = [
         public_views.consumer_order_list,
         name="public-consumer-order-list",
     ),
+    # Blog (Phase 10)
+    path(
+        "public/<slug:slug>/blog/",
+        public_views.blog_list,
+        name="public-blog-list",
+    ),
+    path(
+        "public/<slug:slug>/blog/<slug:handle>/",
+        public_views.blog_detail,
+        name="public-blog-detail",
+    ),
+    # Product reviews (Phase 10)
+    path(
+        "public/<slug:slug>/products/<str:handle>/reviews/",
+        public_views.product_reviews,
+        name="public-product-reviews",
+    ),
+    # Analytics page view (Phase 10)
+    path(
+        "public/<slug:slug>/analytics/pageview/",
+        public_views.analytics_pageview,
+        name="public-analytics-pageview",
+    ),
+    # Password verification (Phase 10)
+    path(
+        "public/<slug:slug>/verify-password/",
+        public_views.verify_store_password,
+        name="public-verify-store-password",
+    ),
+    # Custom domain resolution (Phase 10) — no <slug> in path
+    path(
+        "resolve-domain/",
+        public_views.resolve_domain,
+        name="public-resolve-domain",
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -191,6 +226,41 @@ tenant_patterns = [
         "customers/<uuid:customer_id>/",
         tenant_views.customer_detail,
         name="tenant-customer-detail",
+    ),
+    # Blog (Phase 10)
+    path("blog/", tenant_views.blog_list_create, name="tenant-blog-list-create"),
+    path(
+        "blog/<uuid:post_id>/",
+        tenant_views.blog_detail,
+        name="tenant-blog-detail",
+    ),
+    path(
+        "blog/<uuid:post_id>/publish/",
+        tenant_views.blog_publish,
+        name="tenant-blog-publish",
+    ),
+    # Product reviews moderation (Phase 10)
+    path("reviews/", tenant_views.review_list, name="tenant-review-list"),
+    path(
+        "reviews/<uuid:review_id>/approve/",
+        tenant_views.review_approve,
+        name="tenant-review-approve",
+    ),
+    path(
+        "reviews/<uuid:review_id>/reject/",
+        tenant_views.review_reject,
+        name="tenant-review-reject",
+    ),
+    path(
+        "reviews/<uuid:review_id>/",
+        tenant_views.review_delete,
+        name="tenant-review-delete",
+    ),
+    # Analytics dashboard (Phase 10)
+    path(
+        "analytics/summary/",
+        tenant_views.analytics_summary,
+        name="tenant-analytics-summary",
     ),
 ]
 
