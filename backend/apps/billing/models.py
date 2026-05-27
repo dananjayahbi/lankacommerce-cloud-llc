@@ -47,6 +47,9 @@ class SubscriptionPlan(models.Model):
     features = models.JSONField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
+    # Stripe price IDs — set after Prices are created in Stripe Dashboard or via API
+    stripe_monthly_price_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_annual_price_id = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -83,6 +86,9 @@ class Subscription(models.Model):
     current_period_start = models.DateTimeField(null=True, blank=True)
     current_period_end = models.DateTimeField(null=True, blank=True)
     payhere_subscription_token = models.CharField(max_length=255, null=True, blank=True)
+    # Stripe fields — populated when tenant pays via Stripe
+    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancel_at_period_end = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -220,3 +226,42 @@ class PaymentReminder(models.Model):
 
     def __str__(self) -> str:
         return f"{self.reminder_type} via {self.channel} for invoice {self.invoice_id}"
+
+
+# ── StripePaymentEvent ────────────────────────────────────────────────────────
+
+class StripePaymentEvent(models.Model):
+    """
+    Records every Stripe webhook event that results in an invoice payment.
+    Kept separate from InvoicePaymentEvent (which is PayHere-specific).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stripe_payment_events",
+    )
+    stripe_event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=100)
+    stripe_session_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_payment_intent_id = models.CharField(max_length=255, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=10, default="LKR")
+    processed = models.BooleanField(default=False)
+    raw_payload = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "billing_stripe_payment_event"
+        ordering = ["-created_at"]
+        verbose_name = "Stripe Payment Event"
+        verbose_name_plural = "Stripe Payment Events"
+        indexes = [
+            models.Index(fields=["stripe_session_id"], name="idx_billing_stripe_session"),
+            models.Index(fields=["invoice", "processed"], name="idx_billing_stripe_inv_proc"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event_type} - {self.stripe_event_id}"

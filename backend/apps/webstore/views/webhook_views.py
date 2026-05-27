@@ -205,3 +205,88 @@ class PayHereWebhookView(View):
 
 
 payhere_webhook = PayHereWebhookView.as_view()
+
+
+# ---------------------------------------------------------------------------
+# Stripe webhook handler (per-webstore orders)
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+def stripe_webstore_webhook(request: HttpRequest) -> HttpResponse:
+    """
+    POST /api/webstore/webhooks/stripe/
+
+    Receives Stripe webhook events for webstore order payments.
+
+    Stripe signs each event payload. We verify the signature using
+    settings.STRIPE_WEBSTORE_WEBHOOK_SECRET (preferred) or
+    settings.STRIPE_WEBHOOK_SECRET (fallback).
+
+    Handled events:
+        checkout.session.completed → mark order paid, deduct inventory
+    """
+    import stripe
+    from django.conf import settings as django_settings
+    from apps.webstore.services.stripe_service import handle_webstore_checkout_completed
+
+    if request.method != "POST":
+        return HttpResponse("Method Not Allowed", status=405)
+
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
+
+    # Prefer a webstore-specific webhook secret; fall back to shared one
+    webhook_secret = (
+        getattr(django_settings, "STRIPE_WEBSTORE_WEBHOOK_SECRET", None)
+        or getattr(django_settings, "STRIPE_WEBHOOK_SECRET", None)
+    )
+    stripe_secret_key = getattr(django_settings, "STRIPE_SECRET_KEY", None)
+
+    if not webhook_secret:
+        logger.error(
+            "STRIPE_WEBSTORE_WEBHOOK_SECRET / STRIPE_WEBHOOK_SECRET not set"
+        )
+        return HttpResponse("Webhook secret not configured", status=503)
+
+    if not stripe_secret_key:
+        logger.error("STRIPE_SECRET_KEY is not set")
+        return HttpResponse("Stripe not configured", status=503)
+
+    # Verify signature
+    try:
+        client = stripe.StripeClient(api_key=stripe_secret_key)
+        event = client.construct_event(payload, sig_header, webhook_secret)
+    except ValueError:
+        logger.warning("Stripe webstore webhook: invalid payload")
+        return HttpResponse("Invalid payload", status=400)
+    except stripe.SignatureVerificationError:
+        logger.warning(
+            "Stripe webstore webhook: invalid signature (possible forgery)"
+        )
+        return HttpResponse("Invalid signature", status=400)
+
+    event_type = event.type
+    stripe_event_id = event.id
+
+    logger.info(
+        "Stripe webstore webhook: %s (event_id=%s)", event_type, stripe_event_id
+    )
+
+    try:
+        if event_type == "checkout.session.completed":
+            session_dict = dict(event.data.object)
+            handle_webstore_checkout_completed(session_dict, stripe_event_id)
+        else:
+            logger.debug(
+                "Stripe webstore webhook: unhandled event type %s", event_type
+            )
+    except Exception:
+        logger.exception(
+            "Unhandled exception in Stripe webstore webhook event %s (%s)",
+            event_type,
+            stripe_event_id,
+        )
+        # Always return 200 to prevent Stripe retries for permanent errors
+        return HttpResponse("Internal error (logged)", status=200)
+
+    return HttpResponse("OK", status=200)

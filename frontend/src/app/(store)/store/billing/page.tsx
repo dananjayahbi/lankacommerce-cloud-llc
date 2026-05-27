@@ -63,9 +63,8 @@ interface BillingOverview {
   pending_invoice_id: string | null
 }
 
-interface CheckoutResult {
-  payhere_url: string
-  form_params: Record<string, string>
+interface StripeCheckoutResult {
+  stripe_checkout_url: string
 }
 
 function fmtMoney(v: string | number) {
@@ -140,10 +139,10 @@ export default function BillingPage() {
     placeholderData: (prev) => prev,
   })
 
-  // Checkout mutation
-  const checkoutMutation = useMutation<CheckoutResult, Error, string>({
+  // Checkout mutation — redirects to Stripe Checkout
+  const checkoutMutation = useMutation<StripeCheckoutResult, Error, string>({
     mutationFn: async (planId: string) => {
-      const res = await fetch(`${API_BASE}/api/billing/checkout/initiate/`, {
+      const res = await fetch(`${API_BASE}/api/billing/stripe/checkout/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers(accessToken) },
         body: JSON.stringify({ plan_id: planId }),
@@ -153,22 +152,11 @@ export default function BillingPage() {
         throw new Error(err?.error?.message ?? 'Checkout failed')
       }
       const json = await res.json()
-      return json.data as CheckoutResult
+      return json.data as StripeCheckoutResult
     },
     onSuccess: (result) => {
-      // Submit a form to PayHere
-      const form = document.createElement('form')
-      form.method = 'POST'
-      form.action = result.payhere_url
-      Object.entries(result.form_params).forEach(([k, v]) => {
-        const input = document.createElement('input')
-        input.type = 'hidden'
-        input.name = k
-        input.value = v
-        form.appendChild(input)
-      })
-      document.body.appendChild(form)
-      form.submit()
+      // Redirect browser to the Stripe Checkout page
+      window.location.href = result.stripe_checkout_url
     },
     onError: (err) => toast.error(err.message),
   })

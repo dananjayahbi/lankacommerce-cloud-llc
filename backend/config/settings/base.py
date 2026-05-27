@@ -265,6 +265,28 @@ RESEND_API_KEY = config("RESEND_API_KEY", default="")
 APP_URL = config("APP_URL", default="http://localhost:3000")
 
 # ---------------------------------------------------------------------------
+# Frontend App URL (used for Stripe success/cancel redirect URLs)
+# ---------------------------------------------------------------------------
+FRONTEND_APP_URL = config("FRONTEND_APP_URL", default="http://localhost:3000")
+
+# Webstore base URL template — {slug} is replaced at runtime
+# e.g. "https://{slug}.lankacommerce.com" or "http://localhost:3000"
+WEBSTORE_BASE_URL = config("WEBSTORE_BASE_URL", default="http://localhost:3000")
+
+# ---------------------------------------------------------------------------
+# Stripe Payment Gateway
+# ---------------------------------------------------------------------------
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
+STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="")
+# Webhook secret for platform billing webhooks  (whsec_...)
+STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+# Optional: separate webhook secret for webstore order webhooks
+# If not set, falls back to STRIPE_WEBHOOK_SECRET
+STRIPE_WEBSTORE_WEBHOOK_SECRET = config("STRIPE_WEBSTORE_WEBHOOK_SECRET", default="")
+# Set to True to enable test mode (informational — actual sandbox is controlled by the key)
+STRIPE_SANDBOX = config("STRIPE_SANDBOX", default=True, cast=bool)
+
+# ---------------------------------------------------------------------------
 # Sentry Error Monitoring
 # ---------------------------------------------------------------------------
 SENTRY_DSN = config("SENTRY_DSN", default=None)

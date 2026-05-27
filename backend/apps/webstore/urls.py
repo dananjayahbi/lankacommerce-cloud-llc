@@ -134,10 +134,16 @@ public_patterns = [
         public_views.resolve_domain,
         name="public-resolve-domain",
     ),
+    # Stripe checkout session (creates order + Stripe session in one step)
+    path(
+        "public/<slug:slug>/stripe/checkout-session/",
+        public_views.stripe_order_checkout_session,
+        name="public-stripe-checkout-session",
+    ),
 ]
 
 # ---------------------------------------------------------------------------
-# PayHere webhooks  (no auth, CSRF exempt, signature-verified inside view)
+# Webhooks  (no auth, CSRF exempt, signature-verified inside view)
 # ---------------------------------------------------------------------------
 
 webhook_patterns = [
@@ -145,6 +151,11 @@ webhook_patterns = [
         "webhooks/payhere/<slug:slug>/",
         webhook_views.payhere_webhook,
         name="webhook-payhere",
+    ),
+    path(
+        "webhooks/stripe/",
+        webhook_views.stripe_webstore_webhook,
+        name="webhook-stripe-webstore",
     ),
 ]
 

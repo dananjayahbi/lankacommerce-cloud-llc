@@ -9,6 +9,12 @@ from apps.billing.views.payment_reminders_cron_view import PaymentRemindersCronV
 from apps.billing.views.payhere_webhook_view import PayHereWebhookView
 from apps.billing.views.plan_detail_views import PlanDetailView
 from apps.billing.views.plan_views import PlanListView
+from apps.billing.views.stripe_checkout_view import (
+    StripeCheckoutView,
+    StripePortalView,
+    StripePublishableKeyView,
+)
+from apps.billing.views.stripe_webhook_view import stripe_billing_webhook
 from apps.billing.views.subscription_overview_view import SubscriptionOverviewView
 from apps.billing.views.subscription_status_view import SubscriptionStatusView
 
@@ -24,8 +30,16 @@ urlpatterns = [
     # ── Checkout ───────────────────────────────────────────────────────────
     path("checkout/initiate/", CheckoutInitiateView.as_view(), name="billing-checkout-initiate"),
 
-    # ── PayHere IPN webhook ────────────────────────────────────────────────
+    # ── Stripe checkout & portal ───────────────────────────────────────────
+    path("stripe/checkout/", StripeCheckoutView.as_view(), name="billing-stripe-checkout"),
+    path("stripe/portal/", StripePortalView.as_view(), name="billing-stripe-portal"),
+    path("stripe/config/", StripePublishableKeyView.as_view(), name="billing-stripe-config"),
+
+    # ── PayHere IPN webhook (legacy — kept for backwards compatibility) ─────
     path("webhooks/payhere/", PayHereWebhookView.as_view(), name="billing-payhere-webhook"),
+
+    # ── Stripe webhook ─────────────────────────────────────────────────────
+    path("webhooks/stripe/", stripe_billing_webhook, name="billing-stripe-webhook"),
 
     # ── Invoices ──────────────────────────────────────────────────────────
     path("invoices/", InvoiceListView.as_view(), name="billing-invoice-list"),

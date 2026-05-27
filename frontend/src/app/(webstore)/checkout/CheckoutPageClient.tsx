@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/webstore/cartStore";
 
@@ -51,24 +51,9 @@ interface Address {
   phone: string;
 }
 
-interface PayHereData {
-  merchant_id: string;
-  order_id: string;
-  items: string;
-  amount: string;
-  currency: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  country: string;
-  hash: string;
-  return_url: string;
-  cancel_url: string;
-  notify_url: string;
-  checkout_url: string;
+interface StripeCheckoutData {
+  order_number: string;
+  stripe_checkout_url: string;
 }
 
 const SL_PROVINCES = [
@@ -158,8 +143,6 @@ function CheckoutPageClient({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [payhereData, setPayhereData] = useState<PayHereData | null>(null);
-  const payhereFormRef = useRef<HTMLFormElement>(null);
 
   // Auto-select first shipping method
   const shippingMethods: ShippingMethod[] = storeConfig.shipping_methods ?? [];
@@ -169,12 +152,7 @@ function CheckoutPageClient({
     }
   }, [shippingMethods]);
 
-  // Auto-submit PayHere form once payhereData is set
-  useEffect(() => {
-    if (payhereData && payhereFormRef.current) {
-      payhereFormRef.current.submit();
-    }
-  }, [payhereData]);
+
 
   const currency = storeConfig.currency ?? "LKR";
 
@@ -208,7 +186,7 @@ function CheckoutPageClient({
     setStep(2);
   };
 
-  // ── Step 2: Place order + redirect to PayHere ────────────────────────────
+  // ── Step 2: Place order + redirect to Stripe Checkout ───────────────────
   const handlePlaceOrder = useCallback(async () => {
     if (lineItems.length === 0) {
       setError("Your cart is empty.");
@@ -230,7 +208,7 @@ function CheckoutPageClient({
       };
 
       const res = await fetch(
-        `${API_BASE}/api/webstore/public/${tenantSlug}/orders/`,
+        `${API_BASE}/api/webstore/public/${tenantSlug}/stripe/checkout-session/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -247,12 +225,9 @@ function CheckoutPageClient({
         return;
       }
 
-      const data = await res.json() as {
-        order: { order_number: string };
-        payhere: PayHereData | null;
-      };
+      const data = await res.json() as StripeCheckoutData;
 
-      if (!data.payhere) {
+      if (!data.stripe_checkout_url) {
         setError("Payment gateway not configured for this store.");
         return;
       }
@@ -260,8 +235,8 @@ function CheckoutPageClient({
       // Clear cart once order is placed
       clearCart();
 
-      // Trigger PayHere redirect
-      setPayhereData(data.payhere);
+      // Redirect to Stripe Checkout
+      window.location.href = data.stripe_checkout_url;
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -270,7 +245,7 @@ function CheckoutPageClient({
   }, [email, consumerId, lineItems, address, discountCode, notes, shippingMethodId, tenantSlug, clearCart]);
 
   // If no cart items, redirect home
-  if (cartItems.length === 0 && !payhereData) {
+  if (cartItems.length === 0) {
     return (
       <div className="text-center py-16">
         <p className="text-gray-500 mb-4">Your cart is empty.</p>
@@ -285,27 +260,13 @@ function CheckoutPageClient({
     );
   }
 
-  // ── Redirecting overlay ───────────────────────────────────────────────────
-  if (payhereData) {
+  // ── Redirecting overlay (shown while window.location.href is being set) ──
+  if (submitting) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center gap-4 z-50">
         <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-blue-500 animate-spin" />
-        <p className="text-lg font-medium text-gray-700">Redirecting to PayHere…</p>
+        <p className="text-lg font-medium text-gray-700">Redirecting to Stripe…</p>
         <p className="text-sm text-gray-400">Please do not close this tab.</p>
-
-        {/* Hidden PayHere form — auto-submitted via useEffect */}
-        <form
-          ref={payhereFormRef}
-          method="post"
-          action={payhereData.checkout_url}
-          style={{ display: "none" }}
-        >
-          {Object.entries(payhereData)
-            .filter(([key]) => key !== "checkout_url")
-            .map(([key, value]) => (
-              <input key={key} type="hidden" name={key} value={String(value ?? "")} />
-            ))}
-        </form>
       </div>
     );
   }

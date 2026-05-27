@@ -722,6 +722,93 @@ def order_create(request, slug: str) -> Response:
     )
 
 
+@api_view(["POST"])
+@permission_classes([_AllowAny])
+@throttle_classes([WebstoreOrderThrottle])
+def stripe_order_checkout_session(request, slug: str) -> Response:
+    """
+    POST /api/webstore/public/<slug>/stripe/checkout-session/
+
+    Creates a WebstoreOrder (same as order_create) and immediately creates a
+    Stripe Checkout Session for that order.
+
+    Returns:
+        {
+          "order_number": "WS-0001",
+          "stripe_checkout_url": "https://checkout.stripe.com/pay/cs_test_..."
+        }
+
+    The frontend should redirect the browser to stripe_checkout_url.
+    On success Stripe redirects to the success_url with session_id appended.
+    """
+    from apps.webstore.services.stripe_service import create_webstore_checkout_session
+
+    tenant = storefront_service.resolve_tenant(slug)
+    webstore = _get_webstore_or_404(tenant)
+
+    serializer = OrderCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.core.exceptions import ValidationError as DjValidationError
+
+    try:
+        order = create_order(tenant, serializer.validated_data)
+    except DjValidationError as exc:
+        return Response(
+            exc.message_dict if hasattr(exc, "message_dict") else {"detail": str(exc)},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    # Build the Stripe checkout session
+    from django.conf import settings as django_settings
+
+    storefront_url = getattr(django_settings, "WEBSTORE_BASE_URL", "https://{slug}.lankacommerce.com")
+    base_url = storefront_url.replace("{slug}", slug)
+
+    success_url = (
+        f"{base_url}/checkout/success"
+        f"?order_number={order.order_number}"
+        f"&session_id={{CHECKOUT_SESSION_ID}}"
+    )
+    cancel_url = f"{base_url}/checkout?cancelled=1"
+
+    currency = getattr(webstore, "currency", "LKR") or "LKR"
+
+    try:
+        checkout_url = create_webstore_checkout_session(
+            order=order,
+            tenant_slug=slug,
+            tenant_name=getattr(tenant, "name", slug),
+            currency=currency,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+    except RuntimeError as exc:
+        _ph8_logger.error("Stripe not configured: %s", exc)
+        return Response(
+            {"detail": "Payment gateway (Stripe) is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except Exception:
+        _ph8_logger.exception(
+            "Failed to create Stripe checkout session for order %s",
+            order.order_number,
+        )
+        return Response(
+            {"detail": "Failed to initiate payment. Please try again."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    return Response(
+        {
+            "order_number": order.order_number,
+            "stripe_checkout_url": checkout_url,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
 @api_view(["GET"])
 @permission_classes([_AllowAny])
 def order_status(request, slug: str, order_number: str) -> Response:
