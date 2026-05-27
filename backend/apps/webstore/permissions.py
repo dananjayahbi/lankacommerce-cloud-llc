@@ -60,6 +60,10 @@ class HasWebstoreFeature(BasePermission):
 
         features = subscription.plan.features or []
         for feature in features:
+            # Support plain string format: "webstore"
+            if isinstance(feature, str) and feature == _FEATURE_WEBSTORE_ID:
+                return True
+            # Support dict format: {"id": "webstore", "enabled": True}
             if (
                 isinstance(feature, dict)
                 and feature.get("id") == _FEATURE_WEBSTORE_ID

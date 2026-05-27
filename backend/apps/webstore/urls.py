@@ -164,6 +164,7 @@ tenant_patterns = [
     path("config/", tenant_views.webstore_config, name="tenant-config"),
     path("setup/", tenant_views.webstore_setup, name="tenant-setup"),
     path("settings/", tenant_views.webstore_settings, name="tenant-settings"),
+    path("stats/", tenant_views.webstore_stats, name="tenant-stats"),
     # Theme store
     path("themes/", tenant_views.theme_list, name="tenant-theme-list"),
     path(

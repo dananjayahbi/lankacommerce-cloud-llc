@@ -60,6 +60,7 @@ DEMO_PLANS = [
             "expense_tracking",
             "reports",
             "whatsapp_reminders",
+            "webstore",
         ],
         "is_active": True,
         "sort_order": 2,

@@ -70,6 +70,8 @@ export function StoreSidebar() {
 
   const hasWebstore =
     role === "SUPER_ADMIN" ||
+    role === "OWNER" ||
+    role === "MANAGER" ||
     permissions.includes(PERMISSIONS.WEBSTORE_ACCESS);
 
   const visibleMain = MAIN_NAV.filter(

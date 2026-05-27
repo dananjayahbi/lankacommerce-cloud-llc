@@ -11,6 +11,7 @@ PLAN_FEATURE_ALL = [
     "multi_store",
     "api_access",
     "priority_support",
+    "webstore",
 ]
 
 PLAN_FEATURE_LABELS = {
@@ -26,6 +27,7 @@ PLAN_FEATURE_LABELS = {
     "multi_store": "Multi-Store",
     "api_access": "API Access",
     "priority_support": "Priority Support",
+    "webstore": "Online Webstore",
 }
 
 PAYHERE_SANDBOX_URL = "https://sandbox.payhere.lk/pay/checkout"

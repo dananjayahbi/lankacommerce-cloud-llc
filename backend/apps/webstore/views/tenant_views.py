@@ -77,13 +77,8 @@ class WebstoreConfigView(APIView):
     authentication_classes = _AUTH
     permission_classes = _PERMS
 
-    def get(self, request: Request) -> Response:
-        tenant = _tenant(request)
-        try:
-            webstore = TenantWebstore.objects.get(tenant=tenant)
-        except TenantWebstore.DoesNotExist:
-            return Response({"has_webstore": False, "webstore": None})
-
+    def _build_response(self, tenant, webstore):
+        """Build a flat response dict matching the frontend WebstoreConfig interface."""
         active_config = (
             TenantThemeConfig.objects.select_related("theme")
             .filter(tenant=tenant, status=ThemeConfigStatus.ACTIVE)
@@ -94,26 +89,89 @@ class WebstoreConfigView(APIView):
             .filter(tenant=tenant, status=ThemeConfigStatus.DRAFT)
             .first()
         )
-
-        def _config_summary(cfg):
-            if cfg is None:
-                return None
-            full_config = cfg.config or {}
-            return {
-                "id": cfg.pk,
-                "status": cfg.status,
-                "theme_name": cfg.theme.name,
-                "published_at": cfg.published_at,
-                "global_settings": full_config.get("global_settings"),
-                "template_names": list(full_config.get("templates", {}).keys()),
+        cart = webstore.cart_settings or {}
+        active_theme = None
+        if active_config:
+            active_theme = {
+                "id": str(active_config.theme.id),
+                "theme_name": active_config.theme.name,
+                "theme_version": active_config.theme.version,
+                "preview_image_url": active_config.theme.preview_image_url or None,
             }
+        return {
+            "id": str(webstore.id),
+            "slug": tenant.slug,
+            "is_enabled": webstore.is_enabled,
+            "is_password_protected": webstore.is_password_protected,
+            "password_protected": webstore.is_password_protected,
+            "seo_title": webstore.seo_title,
+            "seo_description": webstore.seo_description,
+            "social_image_url": webstore.social_image_url,
+            "storefront_domain": webstore.storefront_domain,
+            "custom_domain_verified": False,
+            "customer_accounts": (webstore.customer_accounts or "optional").upper(),
+            "require_login_for_cart": cart.get("require_login", False),
+            "allow_order_notes": cart.get("enable_notes", False),
+            "show_shipping_calculator": cart.get("enable_shipping_calculator", False),
+            "active_theme": active_theme,
+            "active_config_id": str(active_config.pk) if active_config else None,
+            "draft_config_id": str(draft_config.pk) if draft_config else None,
+        }
 
-        return Response({
-            "has_webstore": webstore.is_enabled,
-            "webstore": TenantWebstoreSerializer(webstore).data,
-            "active_config": _config_summary(active_config),
-            "draft_config": _config_summary(draft_config),
-        })
+    def get(self, request: Request) -> Response:
+        tenant = _tenant(request)
+        try:
+            webstore = TenantWebstore.objects.get(tenant=tenant)
+        except TenantWebstore.DoesNotExist:
+            return Response(
+                {"detail": "Webstore not set up yet."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(self._build_response(tenant, webstore))
+
+    @transaction.atomic
+    def patch(self, request: Request) -> Response:
+        tenant = _tenant(request)
+        try:
+            webstore = TenantWebstore.objects.get(tenant=tenant)
+        except TenantWebstore.DoesNotExist:
+            return Response(
+                {"detail": "Webstore not set up yet."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        data = request.data
+
+        # Direct scalar fields
+        for field in ("is_enabled", "seo_title", "seo_description",
+                      "social_image_url", "storefront_domain"):
+            if field in data:
+                setattr(webstore, field, data[field])
+
+        # Password protection
+        if "is_password_protected" in data:
+            webstore.is_password_protected = data["is_password_protected"]
+        if "password_protected" in data:
+            webstore.is_password_protected = data["password_protected"]
+        if "store_password" in data and data["store_password"]:
+            from django.contrib.auth.hashers import make_password
+            webstore.store_password_hash = make_password(data["store_password"])
+
+        # customer_accounts (frontend sends uppercase, store lowercase)
+        if "customer_accounts" in data:
+            webstore.customer_accounts = data["customer_accounts"].lower()
+
+        # cart_settings sub-fields
+        cart = webstore.cart_settings or {}
+        if "require_login_for_cart" in data:
+            cart["require_login"] = data["require_login_for_cart"]
+        if "allow_order_notes" in data:
+            cart["enable_notes"] = data["allow_order_notes"]
+        if "show_shipping_calculator" in data:
+            cart["enable_shipping_calculator"] = data["show_shipping_calculator"]
+        webstore.cart_settings = cart
+
+        webstore.save()
+        return Response(self._build_response(tenant, webstore))
 
 
 # Django URL conf expects plain functions; wire class-based views here.
@@ -1244,6 +1302,60 @@ class ReviewDeleteView(APIView):
 
 
 review_delete = ReviewDeleteView.as_view()
+
+
+# ---------------------------------------------------------------------------
+# Webstore stats endpoint  GET /api/webstore/stats/
+# ---------------------------------------------------------------------------
+
+
+class WebstoreStatsView(APIView):
+    """Tenant-scoped stats for the webstore overview dashboard."""
+
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request) -> Response:
+        from apps.webstore.models import WebstoreOrder
+        from django.db.models import Sum
+        from django.utils import timezone as _tz
+        import datetime
+
+        tenant = _tenant(request)
+        now = _tz.now()
+        thirty_days_ago = now - datetime.timedelta(days=30)
+
+        orders_qs = WebstoreOrder.objects.filter(
+            tenant=tenant, deleted_at__isnull=True
+        )
+
+        orders_last_30 = orders_qs.filter(created_at__gte=thirty_days_ago).count()
+        revenue_last_30 = (
+            orders_qs.filter(
+                created_at__gte=thirty_days_ago,
+                payment_status="paid",
+            ).aggregate(total=Sum("total"))["total"]
+        ) or 0
+
+        active_collections = WebstoreCollection.objects.filter(
+            tenant=tenant, is_published=True
+        ).count()
+
+        published_pages = WebstorePage.objects.filter(
+            tenant=tenant, is_published=True
+        ).count()
+
+        return Response(
+            {
+                "orders_last_30_days": orders_last_30,
+                "revenue_last_30_days": float(revenue_last_30),
+                "active_collections": active_collections,
+                "published_pages": published_pages,
+            }
+        )
+
+
+webstore_stats = WebstoreStatsView.as_view()
 
 
 # ---------------------------------------------------------------------------

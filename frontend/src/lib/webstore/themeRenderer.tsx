@@ -36,6 +36,7 @@ import type { ThemeConfig, BlocksMap, SettingsMap, PageTemplate } from "./types"
 import { BLOCK_REGISTRY } from "./blockRegistry";
 import { mergeConfigWithSchema } from "./configMerger";
 import type { MergedSettings } from "./configMerger";
+import { buildThemeCssVars } from "./themeCssVars";
 
 // ---------------------------------------------------------------------------
 // Tenant data shapes
@@ -154,20 +155,8 @@ export interface BlockComponentProps {
  * typography settings. Injected on the webstore layout's `<body>` element so
  * every block can reference `var(--ws-color-primary)` etc. without prop drilling.
  */
-export function buildThemeCssVars(themeConfig: ThemeConfig): React.CSSProperties {
-  const { colors } = themeConfig.global_settings;
-  const { heading_font, body_font } = themeConfig.global_settings.typography;
-
-  return {
-    "--ws-color-primary": colors.primary,
-    "--ws-color-secondary": colors.secondary,
-    "--ws-color-background": colors.background,
-    "--ws-color-text": colors.text,
-    "--ws-color-accent": colors.accent,
-    "--ws-font-heading": `'${heading_font}', sans-serif`,
-    "--ws-font-body": `'${body_font}', sans-serif`,
-  } as React.CSSProperties;
-}
+// Re-exported from the server-safe module so existing client-side imports keep working.
+export { buildThemeCssVars } from "./themeCssVars";
 
 // ---------------------------------------------------------------------------
 // Per-section renderer (extracted for clarity)

@@ -23,7 +23,7 @@
 import { headers, cookies } from "next/headers";
 import React from "react";
 import type { ThemeConfig } from "@/lib/webstore/types";
-import { buildThemeCssVars } from "@/lib/webstore/themeRenderer";
+import { buildThemeCssVars } from "@/lib/webstore/themeCssVars";
 import { CartDrawer } from "@/components/webstore/cart/CartDrawer";
 import { CartStoreProvider } from "@/components/webstore/cart/CartStoreProvider";
 import { AnalyticsTracker } from "@/components/webstore/AnalyticsTracker";

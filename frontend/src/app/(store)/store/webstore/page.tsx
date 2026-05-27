@@ -110,7 +110,7 @@ export default function WebstoreHubPage() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (configLoading) {
+  if (!accessToken || configLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -126,7 +126,7 @@ export default function WebstoreHubPage() {
     );
   }
 
-  // First-time setup
+  // First-time setup — only show wizard if query ran and returned null (404)
   if (config == null) {
     return (
       <WebstoreSetupWizard tenantName={user?.email?.split("@")[0] ?? ""} />

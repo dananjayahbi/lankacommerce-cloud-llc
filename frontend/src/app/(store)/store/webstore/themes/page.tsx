@@ -138,7 +138,7 @@ export default function ThemesPage() {
       return 0;
     });
 
-  if (isLoading) {
+  if (!accessToken || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />

@@ -17,6 +17,8 @@ export default async function WebstoreLayout({
 
   const hasAccess =
     payload.role === "SUPER_ADMIN" ||
+    payload.role === "OWNER" ||
+    payload.role === "MANAGER" ||
     (payload.permissions ?? []).includes("webstore.access");
 
   if (!hasAccess) {
