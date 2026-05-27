@@ -761,34 +761,228 @@ page_detail = PageDetailView.as_view()
 
 
 # ---------------------------------------------------------------------------
-# Orders / Customers — Phase 8 stubs (keep as 501 until Phase 8)
+# Orders / Customers — Phase 8 full implementation
 # ---------------------------------------------------------------------------
 
-
-def _not_implemented(request, *args, **kwargs) -> HttpResponse:
-    return HttpResponse(status=501)
-
-
-def order_list(request) -> HttpResponse:
-    return _not_implemented(request)
-
-
-def order_detail(request, order_id: str) -> HttpResponse:
-    return _not_implemented(request)
+from apps.webstore.models import WebstoreCustomer, WebstoreOrder
+from apps.webstore.serializers.order_serializers import (
+    OrderDetailSerializer,
+    OrderFulfillSerializer,
+    OrderSummarySerializer,
+    WebstoreCustomerSummarySerializer,
+)
+from apps.webstore.services.order_service import fulfill_order
 
 
-def order_status_update(request, order_id: str) -> HttpResponse:
-    return _not_implemented(request)
+class OrderListView(APIView):
+    """
+    GET /api/webstore/orders/?status=<status>&payment_status=<ps>
+
+    Returns paginated orders for the authenticated tenant.
+    """
+
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request) -> Response:
+        tenant = _tenant(request)
+        qs = WebstoreOrder.objects.filter(
+            tenant=tenant, deleted_at__isnull=True
+        ).order_by("-created_at")
+
+        # Optional filters
+        if order_status := request.query_params.get("status"):
+            qs = qs.filter(status=order_status)
+        if payment_status := request.query_params.get("payment_status"):
+            qs = qs.filter(payment_status=payment_status)
+        if fulfillment_status := request.query_params.get("fulfillment_status"):
+            qs = qs.filter(fulfillment_status=fulfillment_status)
+
+        # Pagination
+        try:
+            page = max(1, int(request.query_params.get("page", 1)))
+            page_size = min(100, max(1, int(request.query_params.get("page_size", 25))))
+        except (TypeError, ValueError):
+            page, page_size = 1, 25
+
+        total = qs.count()
+        offset = (page - 1) * page_size
+        orders = qs[offset : offset + page_size]
+
+        return Response(
+            {
+                "orders": OrderSummarySerializer(orders, many=True).data,
+                "meta": {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": max(1, (total + page_size - 1) // page_size),
+                },
+            }
+        )
 
 
-def order_fulfill(request, order_id: str) -> HttpResponse:
-    return _not_implemented(request)
+order_list = OrderListView.as_view()
 
 
-def customer_list(request) -> HttpResponse:
-    return _not_implemented(request)
+class OrderDetailView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def _get_order(self, request: Request, order_id):
+        try:
+            return WebstoreOrder.objects.get(
+                pk=order_id, tenant=_tenant(request), deleted_at__isnull=True
+            )
+        except WebstoreOrder.DoesNotExist:
+            return None
+
+    def get(self, request: Request, order_id) -> Response:
+        order = self._get_order(request, order_id)
+        if order is None:
+            return Response(
+                {"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(OrderDetailSerializer(order).data)
 
 
-def customer_detail(request, customer_id: str) -> HttpResponse:
-    return _not_implemented(request)
+order_detail = OrderDetailView.as_view()
+
+
+class OrderStatusUpdateView(APIView):
+    """
+    PATCH /api/webstore/orders/<uuid:order_id>/status/
+
+    Allows tenant staff to manually update order status.
+    """
+
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def patch(self, request: Request, order_id) -> Response:
+        try:
+            order = WebstoreOrder.objects.get(
+                pk=order_id, tenant=_tenant(request), deleted_at__isnull=True
+            )
+        except WebstoreOrder.DoesNotExist:
+            return Response(
+                {"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        new_status = request.data.get("status")
+        valid_statuses = [
+            "pending", "confirmed", "processing",
+            "shipped", "delivered", "cancelled", "refunded",
+        ]
+        if new_status not in valid_statuses:
+            return Response(
+                {"status": f"Must be one of: {', '.join(valid_statuses)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order.status = new_status
+        order.save(update_fields=["status", "updated_at"])
+        return Response(OrderDetailSerializer(order).data)
+
+
+order_status_update = OrderStatusUpdateView.as_view()
+
+
+class OrderFulfillView(APIView):
+    """
+    POST /api/webstore/orders/<uuid:order_id>/fulfill/
+
+    Marks an order as fulfilled and records tracking information.
+    """
+
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def post(self, request: Request, order_id) -> Response:
+        try:
+            order = WebstoreOrder.objects.get(
+                pk=order_id, tenant=_tenant(request), deleted_at__isnull=True
+            )
+        except WebstoreOrder.DoesNotExist:
+            return Response(
+                {"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if order.fulfillment_status == "fulfilled":
+            return Response(
+                {"detail": "Order is already fulfilled."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = OrderFulfillSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        d = serializer.validated_data
+        updated = fulfill_order(
+            order,
+            tracking_number=d.get("tracking_number", ""),
+            tracking_carrier=d.get("tracking_carrier", ""),
+        )
+        return Response(OrderDetailSerializer(updated).data)
+
+
+order_fulfill = OrderFulfillView.as_view()
+
+
+class CustomerListView(APIView):
+    """GET /api/webstore/customers/ — paginated consumer list for tenant admin."""
+
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request) -> Response:
+        tenant = _tenant(request)
+        qs = WebstoreCustomer.objects.filter(
+            tenant=tenant, deleted_at__isnull=True
+        ).order_by("-created_at")
+
+        try:
+            page = max(1, int(request.query_params.get("page", 1)))
+            page_size = min(100, max(1, int(request.query_params.get("page_size", 25))))
+        except (TypeError, ValueError):
+            page, page_size = 1, 25
+
+        total = qs.count()
+        offset = (page - 1) * page_size
+        customers = qs[offset : offset + page_size]
+
+        return Response(
+            {
+                "customers": WebstoreCustomerSummarySerializer(customers, many=True).data,
+                "meta": {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": max(1, (total + page_size - 1) // page_size),
+                },
+            }
+        )
+
+
+customer_list = CustomerListView.as_view()
+
+
+class CustomerDetailView(APIView):
+    authentication_classes = _AUTH
+    permission_classes = _PERMS
+
+    def get(self, request: Request, customer_id) -> Response:
+        try:
+            customer = WebstoreCustomer.objects.get(
+                pk=customer_id, tenant=_tenant(request), deleted_at__isnull=True
+            )
+        except WebstoreCustomer.DoesNotExist:
+            return Response(
+                {"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(WebstoreCustomerSummarySerializer(customer).data)
+
+
+customer_detail = CustomerDetailView.as_view()
 

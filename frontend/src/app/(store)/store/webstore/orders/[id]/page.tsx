@@ -210,8 +210,8 @@ export default function WebstoreOrderDetailPage() {
   function handleAddTracking() {
     updateStatusMutation.mutate({
       status: "shipped",
-      tracking_number: trackingNumber || undefined,
-      tracking_carrier: trackingCarrier || undefined,
+      ...(trackingNumber ? { tracking_number: trackingNumber } : {}),
+      ...(trackingCarrier ? { tracking_carrier: trackingCarrier } : {}),
     });
   }
 
@@ -375,7 +375,7 @@ export default function WebstoreOrderDetailPage() {
               </TableHeader>
               <TableBody>
                 {order.line_items.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.variant_id ?? item.sku ?? item.title}>
                     <TableCell>
                       <p className="text-sm font-medium text-slate-800">
                         {item.title}

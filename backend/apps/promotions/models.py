@@ -43,6 +43,15 @@ class Promotion(models.Model):
         related_name="promotions",
     )
     min_quantity = models.PositiveIntegerField(null=True, blank=True)
+    max_uses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum number of times this promotion can be used. Null = unlimited.",
+    )
+    usage_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of times this promotion has been successfully used.",
+    )
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)

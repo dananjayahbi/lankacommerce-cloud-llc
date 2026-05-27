@@ -54,11 +54,16 @@ export function ConsumerRegisterForm({ tenantSlug }: Props) {
               email: form.email,
               password: form.password,
             }),
-            credentials: "include",
           },
         );
 
         if (res.ok) {
+          const data = await res.json() as { access: string; refresh: string };
+          await fetch("/api/auth/set-consumer-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ access: data.access, refresh: data.refresh }),
+          });
           router.push("/account");
         } else {
           const data = (await res.json()) as Record<string, string[] | string>;

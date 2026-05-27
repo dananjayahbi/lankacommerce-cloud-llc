@@ -127,9 +127,9 @@ export default function WebstoreHubPage() {
   }
 
   // First-time setup
-  if (config === null) {
+  if (config == null) {
     return (
-      <WebstoreSetupWizard tenantName={user?.email?.split("@")[0]} />
+      <WebstoreSetupWizard tenantName={user?.email?.split("@")[0] ?? ""} />
     );
   }
 

@@ -16,7 +16,7 @@ URL groups:
 
 from django.urls import path
 
-from .views import admin_views, customizer_views, public_views, tenant_views
+from .views import admin_views, customizer_views, public_views, tenant_views, webhook_views
 
 app_name = "webstore"
 
@@ -93,11 +93,25 @@ public_patterns = [
         public_views.order_status,
         name="public-order-status",
     ),
+    # Consumer orders (auth required — consumer JWT in Authorization header)
+    path(
+        "public/<slug:slug>/customers/orders/",
+        public_views.consumer_order_list,
+        name="public-consumer-order-list",
+    ),
 ]
 
 # ---------------------------------------------------------------------------
-# 2. Tenant admin URLs  (staff JWT required)
+# PayHere webhooks  (no auth, CSRF exempt, signature-verified inside view)
 # ---------------------------------------------------------------------------
+
+webhook_patterns = [
+    path(
+        "webhooks/payhere/<slug:slug>/",
+        webhook_views.payhere_webhook,
+        name="webhook-payhere",
+    ),
+]
 
 tenant_patterns = [
     # Webstore management
@@ -181,7 +195,7 @@ tenant_patterns = [
 ]
 
 # ---------------------------------------------------------------------------
-# 3. Customizer URLs  (staff JWT required)
+# 2. Tenant admin URLs  (staff JWT required)
 # ---------------------------------------------------------------------------
 
 customizer_patterns = [
@@ -228,6 +242,21 @@ superadmin_patterns = [
         admin_views.theme_publish,
         name="admin-theme-publish",
     ),
+    path(
+        "admin/themes/<uuid:theme_id>/unpublish/",
+        admin_views.theme_unpublish,
+        name="admin-theme-unpublish",
+    ),
+    path(
+        "admin/themes/<uuid:theme_id>/tenants/",
+        admin_views.theme_tenants,
+        name="admin-theme-tenants",
+    ),
+    path(
+        "admin/themes/<uuid:theme_id>/force-update-tenants/",
+        admin_views.theme_force_update_tenants,
+        name="admin-theme-force-update-tenants",
+    ),
     # Blocks
     path(
         "admin/blocks/",
@@ -244,6 +273,12 @@ superadmin_patterns = [
         admin_views.block_publish,
         name="admin-block-publish",
     ),
+    # Stats
+    path(
+        "admin/stats/",
+        admin_views.webstore_stats,
+        name="admin-stats",
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -252,6 +287,7 @@ superadmin_patterns = [
 
 urlpatterns = (
     public_patterns
+    + webhook_patterns
     + tenant_patterns
     + customizer_patterns
     + superadmin_patterns

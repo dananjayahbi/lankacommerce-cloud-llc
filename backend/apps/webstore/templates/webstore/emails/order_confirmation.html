@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmed — {{ order.order_number }}</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header { background-color: #1a1a1a; padding: 28px 32px; text-align: center; }
+    .header h1 { color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.3px; }
+    .header p { color: #aaaaaa; font-size: 14px; margin: 6px 0 0; }
+    .body { padding: 32px; }
+    .greeting { font-size: 16px; color: #333333; margin: 0 0 24px; }
+    .section-title { font-size: 13px; font-weight: 600; color: #888888; text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 12px; }
+    table.items { width: 100%; border-collapse: collapse; }
+    table.items th { font-size: 12px; font-weight: 600; color: #888888; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 0; border-bottom: 1px solid #eeeeee; text-align: left; }
+    table.items th.right, table.items td.right { text-align: right; }
+    table.items td { font-size: 14px; color: #333333; padding: 12px 0; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+    .item-title { font-weight: 500; }
+    .item-variant { font-size: 12px; color: #888888; margin-top: 2px; }
+    .totals-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .totals-table td { font-size: 14px; padding: 6px 0; color: #555555; }
+    .totals-table td.right { text-align: right; }
+    .totals-table tr.total td { font-size: 16px; font-weight: 700; color: #111111; padding-top: 12px; border-top: 2px solid #eeeeee; }
+    .address-box { background: #f9f9f9; border-radius: 6px; padding: 16px; font-size: 14px; color: #444444; line-height: 1.6; }
+    .order-meta { display: flex; gap: 16px; margin-bottom: 24px; }
+    .meta-item { flex: 1; background: #f9f9f9; border-radius: 6px; padding: 14px 16px; }
+    .meta-item .label { font-size: 11px; font-weight: 600; color: #888888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+    .meta-item .value { font-size: 14px; font-weight: 600; color: #111111; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+    .badge-pending { background: #FEF3C7; color: #92400E; }
+    .badge-paid { background: #D1FAE5; color: #065F46; }
+    .footer { background: #f9f9f9; padding: 20px 32px; text-align: center; font-size: 12px; color: #aaaaaa; border-top: 1px solid #eeeeee; }
+    @media (max-width: 600px) {
+      .body { padding: 20px; }
+      .order-meta { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <!-- Header -->
+    <div class="header">
+      <h1>{{ tenant.name }}</h1>
+      <p>Order Confirmation</p>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+      <p class="greeting">
+        Thank you for your order{% if order.customer %}{% if order.customer.first_name %}, {{ order.customer.first_name }}{% endif %}{% endif %}!
+        We've received your order and will be in touch shortly.
+      </p>
+
+      <!-- Order meta -->
+      <div class="order-meta">
+        <div class="meta-item">
+          <div class="label">Order Number</div>
+          <div class="value">{{ order.order_number }}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Payment</div>
+          <div class="value">
+            {% if order.payment_status == "paid" %}
+              <span class="badge badge-paid">Paid</span>
+            {% else %}
+              <span class="badge badge-pending">Pending</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Currency</div>
+          <div class="value">{{ order.currency }}</div>
+        </div>
+      </div>
+
+      <!-- Line items -->
+      <div class="section-title">Items Ordered</div>
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="right">Qty</th>
+            <th class="right">Unit Price</th>
+            <th class="right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in line_items %}
+          <tr>
+            <td>
+              <div class="item-title">{{ item.title }}</div>
+              {% if item.variant_title and item.variant_title != item.sku %}
+              <div class="item-variant">{{ item.variant_title }}</div>
+              {% endif %}
+              <div class="item-variant">SKU: {{ item.sku }}</div>
+            </td>
+            <td class="right">{{ item.quantity }}</td>
+            <td class="right">{{ order.currency }} {{ item.unit_price }}</td>
+            <td class="right">{{ order.currency }} {{ item.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Totals -->
+      <table class="totals-table">
+        <tr>
+          <td>Subtotal</td>
+          <td class="right">{{ order.currency }} {{ order.subtotal }}</td>
+        </tr>
+        {% if order.shipping_amount and order.shipping_amount != "0.00" %}
+        <tr>
+          <td>Shipping</td>
+          <td class="right">{{ order.currency }} {{ order.shipping_amount }}</td>
+        </tr>
+        {% endif %}
+        {% if order.discount_amount and order.discount_amount != "0.00" %}
+        <tr>
+          <td>Discount{% if order.discount_code %} ({{ order.discount_code }}){% endif %}</td>
+          <td class="right">− {{ order.currency }} {{ order.discount_amount }}</td>
+        </tr>
+        {% endif %}
+        {% if order.tax_amount and order.tax_amount != "0.00" %}
+        <tr>
+          <td>Tax (VAT)</td>
+          <td class="right">{{ order.currency }} {{ order.tax_amount }}</td>
+        </tr>
+        {% endif %}
+        <tr class="total">
+          <td>Total</td>
+          <td class="right">{{ order.currency }} {{ order.total }}</td>
+        </tr>
+      </table>
+
+      <!-- Shipping address -->
+      {% if order.shipping_address %}
+      <div class="section-title">Shipping Address</div>
+      <div class="address-box">
+        {% with addr=order.shipping_address %}
+        {% if addr.first_name or addr.last_name %}{{ addr.first_name }} {{ addr.last_name }}<br>{% endif %}
+        {% if addr.address1 %}{{ addr.address1 }}<br>{% endif %}
+        {% if addr.address2 %}{{ addr.address2 }}<br>{% endif %}
+        {% if addr.city %}{{ addr.city }}{% if addr.province %}, {{ addr.province }}{% endif %} {{ addr.postal_code }}<br>{% endif %}
+        {% if addr.country %}{{ addr.country }}{% endif %}
+        {% endwith %}
+      </div>
+      {% endif %}
+
+      {% if order.notes %}
+      <div class="section-title">Order Notes</div>
+      <div class="address-box">{{ order.notes }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>This email was sent to {{ order.customer_email }} because you placed an order on {{ tenant.name }}.</p>
+      <p style="margin-top:8px;">© {% now "Y" %} {{ tenant.name }}. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

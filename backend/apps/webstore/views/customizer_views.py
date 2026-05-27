@@ -55,6 +55,37 @@ class ActiveConfigView(APIView):
     permission_classes = _PERMS
 
     def get(self, request: Request) -> Response:
+        # Phase 9: ?theme_id=<uuid> returns the theme's default_config as a mock
+        # TenantThemeConfig, enabling the merchant preview iFrame to render any
+        # marketplace theme without the tenant installing it first.
+        theme_id = request.query_params.get("theme_id")
+        if theme_id:
+            import uuid as _uuid
+            try:
+                theme_uuid = _uuid.UUID(str(theme_id))
+            except (ValueError, AttributeError):
+                return Response(
+                    {"detail": "Invalid theme_id format. Must be a valid UUID."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                preview_theme = WebstoreTheme.objects.get(pk=theme_uuid, is_published=True)
+            except WebstoreTheme.DoesNotExist:
+                return Response(
+                    {"detail": "Theme not found or not published."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response({
+                "id": None,
+                "theme_id": str(preview_theme.pk),
+                "theme_name": preview_theme.name,
+                "status": "PREVIEW",
+                "config": preview_theme.default_config,
+                "published_at": None,
+                "created_at": None,
+                "updated_at": None,
+            })
+
         tenant = _tenant(request)
         cfg = (
             TenantThemeConfig.objects.select_related("theme")

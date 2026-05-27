@@ -136,7 +136,7 @@ export default function WebstoreOrdersPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v ?? "all"); setPage(1); }}>
           <SelectTrigger className="h-8 w-40 text-xs">
             <SelectValue placeholder="Order Status" />
           </SelectTrigger>
@@ -152,7 +152,7 @@ export default function WebstoreOrdersPage() {
           </SelectContent>
         </Select>
 
-        <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v); setPage(1); }}>
+        <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v ?? "all"); setPage(1); }}>
           <SelectTrigger className="h-8 w-40 text-xs">
             <SelectValue placeholder="Payment Status" />
           </SelectTrigger>

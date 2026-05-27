@@ -54,15 +54,26 @@ class Shift(models.Model):
 class Sale(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant_id = models.CharField(max_length=50)
+    # Phase 8: nullable to support webstore sales (no physical shift / cashier)
     shift = models.ForeignKey(
         Shift,
         on_delete=models.PROTECT,
         related_name="sales",
+        null=True,
+        blank=True,
     )
     cashier = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="cashier_sales",
+        null=True,
+        blank=True,
+    )
+    # 'pos' (default) = physical POS terminal; 'webstore' = online order
+    sale_source = models.CharField(
+        max_length=20,
+        choices=[("pos", "POS"), ("webstore", "Webstore")],
+        default="pos",
     )
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
     discount_amount = models.DecimalField(

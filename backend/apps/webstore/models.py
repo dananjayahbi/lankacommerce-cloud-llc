@@ -99,6 +99,9 @@ class WebstoreTheme(models.Model):
         default=ThemeCategory.GENERAL,
     )
     version = models.CharField(max_length=20, default="1.0.0")
+    # Integer version counter — auto-incremented on every published config update.
+    # Used by tenants and the configMerger to detect upstream theme changes.
+    version_number = models.PositiveIntegerField(default=1)
     preview_image_url = models.URLField(blank=True)
     # Array of {url, label} objects for the gallery
     preview_images = models.JSONField(default=list)
@@ -148,7 +151,7 @@ class WebstoreBlock(models.Model):
     react_component_key = models.CharField(max_length=100)
     preview_image_url = models.URLField(blank=True)
     is_premium = models.BooleanField(default=False)
-    is_published = models.BooleanField(default=True)
+    is_published = models.BooleanField(default=False)
     version = models.CharField(max_length=20, default="1.0.0")
     sort_order = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -210,6 +213,13 @@ class TenantWebstore(models.Model):
         ],
         default="optional",
     )
+    # Phase 8: PayHere payment gateway credentials
+    # merchant_secret is sensitive — never expose it in any API response
+    payhere_merchant_id = models.CharField(max_length=100, blank=True)
+    payhere_merchant_secret = models.CharField(max_length=255, blank=True)
+    # Phase 8: Basic shipping methods configuration
+    # [{id, name, description, price, estimated_days}]
+    shipping_methods = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

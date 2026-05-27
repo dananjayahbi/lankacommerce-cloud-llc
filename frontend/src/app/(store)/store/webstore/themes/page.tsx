@@ -7,12 +7,14 @@ import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   Filter,
   Loader2,
+  Monitor,
   Palette,
-  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,7 @@ interface Theme {
   author: string;
   category: string;
   preview_image_url: string | null;
+  preview_images?: string[] | null;
   is_free: boolean;
   is_installed: boolean;
   description: string;
@@ -164,7 +167,7 @@ export default function ThemesPage() {
         </div>
 
         {/* Category filter */}
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
           <SelectTrigger className="h-8 w-40 text-xs">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
@@ -393,62 +396,248 @@ function ThemePreviewModal({
   onClose: () => void;
   onInstall: (t: Theme) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"info" | "preview">("info");
+  const [imgIdx, setImgIdx] = useState(0);
+  const [iframeLoading, setIframeLoading] = useState(true);
+
+  // Collect screenshots array
+  const screenshots: string[] = [];
+  if (theme?.preview_images && theme.preview_images.length > 0) {
+    screenshots.push(...theme.preview_images);
+  } else if (theme?.preview_image_url) {
+    screenshots.push(theme.preview_image_url);
+  }
+
+  // Reset state when theme changes
+  if (theme && imgIdx >= screenshots.length && screenshots.length > 0) {
+    setImgIdx(0);
+  }
+
   if (!theme) return null;
+
+  const hasPrev = imgIdx > 0;
+  const hasNext = imgIdx < screenshots.length - 1;
 
   return (
     <Dialog open={!!theme} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {theme.name}
-            <Badge variant="outline" className="text-xs">
-              v{theme.version}
+      <DialogContent
+        className="p-0 overflow-hidden flex flex-col"
+        style={{ maxWidth: "90vw", width: "90vw", height: "90vh", maxHeight: "90vh" }}
+      >
+        {/* Title bar */}
+        <div className="flex items-center justify-between px-5 py-3 border-b bg-white shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="font-bold text-slate-900">{theme.name}</h2>
+            <Badge variant="outline" className="text-xs">v{theme.version}</Badge>
+            <Badge
+              variant={theme.is_free ? "secondary" : "outline"}
+              className="text-xs"
+            >
+              {theme.is_free ? "Free" : "Paid"}
             </Badge>
-          </DialogTitle>
-          <DialogDescription>
-            By {theme.author} &middot;{" "}
-            {theme.is_free ? "Free" : "Paid"} &middot; {theme.category}
-          </DialogDescription>
-        </DialogHeader>
+            {theme.category && (
+              <Badge variant="outline" className="text-xs capitalize">
+                {theme.category}
+              </Badge>
+            )}
+          </div>
 
-        {/* Preview image */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
-          {theme.preview_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={theme.preview_image_url}
-              alt={theme.name}
-              className="h-full w-full object-cover"
-            />
+          {/* Tab switcher */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-md border bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setActiveTab("info")}
+                className={cn(
+                  "h-8 px-3 text-xs flex items-center gap-1.5 rounded-l-md transition-colors",
+                  activeTab === "info"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Details
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab("preview"); setIframeLoading(true); }}
+                className={cn(
+                  "h-8 px-3 text-xs flex items-center gap-1.5 rounded-r-md transition-colors",
+                  activeTab === "preview"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                Live Preview
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
+          {activeTab === "info" ? (
+            /* ── Details panel ─────────────────────────────────── */
+            <div className="flex flex-col lg:flex-row w-full overflow-auto">
+              {/* Screenshots carousel */}
+              <div className="lg:w-2/3 bg-slate-100 relative flex items-center justify-center shrink-0">
+                {screenshots.length > 0 ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      key={imgIdx}
+                      src={screenshots[imgIdx]}
+                      alt={`${theme.name} screenshot ${imgIdx + 1}`}
+                      className="max-h-full max-w-full object-contain"
+                      style={{ maxHeight: "calc(90vh - 56px)" }}
+                    />
+                    {screenshots.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setImgIdx((i) => i - 1)}
+                          disabled={!hasPrev}
+                          className={cn(
+                            "absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center transition-opacity",
+                            !hasPrev && "opacity-20 cursor-not-allowed",
+                          )}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setImgIdx((i) => i + 1)}
+                          disabled={!hasNext}
+                          className={cn(
+                            "absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center transition-opacity",
+                            !hasNext && "opacity-20 cursor-not-allowed",
+                          )}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                        {/* Dots */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                          {screenshots.map((_, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setImgIdx(i)}
+                              className={cn(
+                                "w-2 h-2 rounded-full transition-colors",
+                                i === imgIdx ? "bg-white" : "bg-white/40",
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-20">
+                    <Palette className="w-16 h-16" />
+                    <span className="text-sm">No preview images</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Info panel */}
+              <div className="lg:w-1/3 p-6 flex flex-col gap-5 overflow-y-auto border-l bg-white">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{theme.name}</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    By {theme.author} &middot; v{theme.version}
+                  </p>
+                </div>
+
+                {theme.description && (
+                  <p className="text-sm text-slate-600 leading-relaxed">{theme.description}</p>
+                )}
+
+                <div className="space-y-2">
+                  <Row label="Category" value={theme.category || "General"} />
+                  <Row label="Price" value={theme.is_free ? "Free" : "Paid"} />
+                  <Row label="Version" value={`v${theme.version}`} />
+                </div>
+
+                <div className="flex flex-col gap-2 mt-auto pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => { setActiveTab("preview"); setIframeLoading(true); }}
+                  >
+                    <Monitor className="w-3.5 h-3.5" />
+                    Live Preview
+                  </Button>
+                  {theme.is_installed ? (
+                    <Button size="sm" className="w-full" variant="secondary" disabled>
+                      <Check className="w-3.5 h-3.5 mr-2" />
+                      Installed
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="w-full bg-[#F97316] hover:bg-orange-600 text-white"
+                      onClick={() => onInstall(theme)}
+                    >
+                      <Download className="w-3.5 h-3.5 mr-2" />
+                      Install Theme
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Palette className="w-12 h-12 text-slate-300" />
+            /* ── Live preview iFrame ─────────────────────────────── */
+            <div className="relative w-full h-full bg-slate-900">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-400 z-10">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="text-sm">Loading preview…</span>
+                </div>
+              )}
+              <iframe
+                key={theme.id}
+                src={`/store/webstore/customize?theme_id=${theme.id}&preview=1`}
+                className="w-full h-full border-0"
+                title={`Preview: ${theme.name}`}
+                onLoad={() => setIframeLoading(false)}
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+              {/* Overlay banner */}
+              <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-xs px-4 py-2 flex items-center justify-between">
+                <span>
+                  Previewing <strong>{theme.name}</strong> — this is a read-only live preview using the theme's default configuration
+                </span>
+                {!theme.is_installed && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-[#F97316] hover:bg-orange-600 text-white"
+                    onClick={() => onInstall(theme)}
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Install
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
-
-        {theme.description && (
-          <p className="text-sm text-slate-600">{theme.description}</p>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-          {!theme.is_installed && (
-            <Button
-              className="bg-[#F97316] hover:bg-orange-600 text-white"
-              onClick={() => onInstall(theme)}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Install Theme
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-medium text-slate-800">{value}</span>
+    </div>
+  );
+}
+
 
 // ─── Confirm Dialog ───────────────────────────────────────────────────────────
 

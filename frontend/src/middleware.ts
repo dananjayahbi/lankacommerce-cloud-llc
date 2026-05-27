@@ -248,11 +248,55 @@ export async function middleware(request: NextRequest) {
 
     // ── Webstore consumer routes ─────────────────────────────────────────────
     // If the path does NOT target a staff/admin layout, treat it as a public
-    // consumer-facing webstore page. No JWT is required; just forward the
-    // x-tenant-slug header so Server Components can resolve the tenant.
+    // consumer-facing webstore page. No JWT is required for most routes;
+    // /account/* routes require a valid consumer JWT cookie.
     if (!isStaffPath(pathname)) {
       const requestHeaders = new Headers(request.headers);
       requestHeaders.set("x-tenant-slug", subdomain);
+
+      // Consumer-protected routes: /account/* (order history, profile, etc.)
+      // /account/login and /account/register are always public
+      if (
+        pathname.startsWith("/account/") &&
+        pathname !== "/account/login" &&
+        !pathname.startsWith("/account/login/") &&
+        pathname !== "/account/register" &&
+        !pathname.startsWith("/account/register/")
+      ) {
+        const consumerToken = request.cookies.get("consumer_access_token")?.value;
+
+        if (!consumerToken) {
+          const loginUrl = new URL("/account/login", request.url);
+          loginUrl.searchParams.set("callbackUrl", pathname);
+          return NextResponse.redirect(loginUrl);
+        }
+
+        try {
+          const { payload: consumerPayload } = await jwtVerify(
+            consumerToken,
+            JWT_SECRET,
+            { algorithms: ["HS256"] }
+          );
+
+          // Enforce consumer token type — never accept staff tokens
+          if (
+            consumerPayload["role"] !== "CONSUMER" ||
+            consumerPayload["type"] !== "consumer_access"
+          ) {
+            throw new Error("Not a consumer token");
+          }
+
+          requestHeaders.set("x-consumer-id", String(consumerPayload["sub"] ?? ""));
+          requestHeaders.set("x-consumer-email", String(consumerPayload["email"] ?? ""));
+        } catch {
+          const loginUrl = new URL("/account/login", request.url);
+          loginUrl.searchParams.set("sessionExpired", "true");
+          const response = NextResponse.redirect(loginUrl);
+          response.cookies.delete("consumer_access_token");
+          return response;
+        }
+      }
+
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
 

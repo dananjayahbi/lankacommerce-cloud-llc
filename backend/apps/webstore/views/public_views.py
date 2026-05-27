@@ -32,7 +32,7 @@ Security:
 import math
 
 from django.contrib.auth.hashers import check_password
-from django.http import Http404, HttpResponse
+from django.http import Http404
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -494,21 +494,289 @@ search = SearchView.as_view()
 
 
 # ---------------------------------------------------------------------------
-# Phase 8 stubs — consumer account & order creation
+# Phase 8 — consumer account & order creation
 # ---------------------------------------------------------------------------
 
+import logging
 
-def customer_register(request, slug: str) -> HttpResponse:
-    return HttpResponse(status=501)
+from django.contrib.auth.hashers import make_password
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny as _AllowAny
+
+import jwt as pyjwt
+
+from apps.webstore.models import WebstoreCustomer
+from apps.webstore.serializers.order_serializers import (
+    ConsumerLoginSerializer,
+    ConsumerRegisterSerializer,
+    OrderCreateSerializer,
+    OrderDetailSerializer,
+)
+from apps.webstore.services.consumer_auth_service import (
+    decode_consumer_token,
+    issue_consumer_tokens,
+)
+from apps.webstore.services.order_service import create_order
+from apps.webstore.services.payhere_service import build_payment_initiation_data
+from apps.webstore.throttling import (
+    WebstoreLoginThrottle,
+    WebstoreOrderThrottle,
+    WebstoreRegisterThrottle,
+)
+
+_ph8_logger = logging.getLogger(__name__)
 
 
-def customer_login(request, slug: str) -> HttpResponse:
-    return HttpResponse(status=501)
+def _get_consumer_from_request(request, tenant):
+    """
+    Extract and validate a consumer JWT from the Authorization header.
+
+    Returns the WebstoreCustomer instance or None if unauthenticated.
+    Does NOT raise — unauthenticated consumers still access guest endpoints.
+    """
+    auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    try:
+        payload = decode_consumer_token(token)
+        return WebstoreCustomer.objects.get(
+            id=payload["sub"],
+            tenant=tenant,
+            deleted_at__isnull=True,
+            is_active=True,
+        )
+    except Exception:
+        return None
 
 
-def order_create(request, slug: str) -> HttpResponse:
-    return HttpResponse(status=501)
+@api_view(["POST"])
+@permission_classes([_AllowAny])
+@throttle_classes([WebstoreRegisterThrottle])
+def customer_register(request, slug: str) -> Response:
+    """
+    POST /api/webstore/public/<slug>/customers/register/
+
+    Creates a new consumer account and returns JWT tokens.
+    Enforces email uniqueness within the tenant.
+    """
+    tenant = storefront_service.resolve_tenant(slug)
+    webstore = _get_webstore_or_404(tenant)
+
+    # Require customer accounts to be enabled
+    if webstore.customer_accounts == "disabled":
+        return Response(
+            {"detail": "Customer accounts are not enabled for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    serializer = ConsumerRegisterSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    d = serializer.validated_data
+    email = d["email"]
+
+    # Enforce email uniqueness within tenant
+    if WebstoreCustomer.objects.filter(
+        tenant=tenant, email=email, deleted_at__isnull=True
+    ).exists():
+        return Response(
+            {"email": "An account with this email already exists."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    customer = WebstoreCustomer.objects.create(
+        tenant=tenant,
+        email=email,
+        first_name=d.get("first_name", ""),
+        last_name=d.get("last_name", ""),
+        phone=d.get("phone", ""),
+        password_hash=make_password(d["password"]),
+        accepts_marketing=d.get("accepts_marketing", False),
+    )
+
+    tokens = issue_consumer_tokens(customer)
+
+    return Response(
+        {
+            "customer": {
+                "id": str(customer.id),
+                "email": customer.email,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+            },
+            "access": tokens["access"],
+            "refresh": tokens["refresh"],
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
-def order_status(request, slug: str, order_number: str) -> HttpResponse:
-    return HttpResponse(status=501)
+@api_view(["POST"])
+@permission_classes([_AllowAny])
+@throttle_classes([WebstoreLoginThrottle])
+def customer_login(request, slug: str) -> Response:
+    """
+    POST /api/webstore/public/<slug>/customers/login/
+
+    Authenticates a consumer and returns JWT tokens.
+    """
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    serializer = ConsumerLoginSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    d = serializer.validated_data
+    email = d["email"]
+    password = d["password"]
+
+    try:
+        from django.contrib.auth.hashers import check_password as _check_password
+
+        customer = WebstoreCustomer.objects.get(
+            tenant=tenant,
+            email=email,
+            deleted_at__isnull=True,
+            is_active=True,
+        )
+    except WebstoreCustomer.DoesNotExist:
+        return Response(
+            {"detail": "Invalid email or password."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    from django.contrib.auth.hashers import check_password as _check_password
+
+    if not _check_password(password, customer.password_hash):
+        return Response(
+            {"detail": "Invalid email or password."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    customer.last_login_at = timezone.now()
+    customer.save(update_fields=["last_login_at"])
+
+    tokens = issue_consumer_tokens(customer)
+
+    return Response(
+        {
+            "customer": {
+                "id": str(customer.id),
+                "email": customer.email,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+            },
+            "access": tokens["access"],
+            "refresh": tokens["refresh"],
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([_AllowAny])
+@throttle_classes([WebstoreOrderThrottle])
+def order_create(request, slug: str) -> Response:
+    """
+    POST /api/webstore/public/<slug>/orders/
+
+    Creates a new order. Prices are ALWAYS re-fetched from the database;
+    any unit_price submitted by the client is silently ignored.
+
+    Returns the new order + PayHere payment initiation data.
+    """
+    tenant = storefront_service.resolve_tenant(slug)
+    webstore = _get_webstore_or_404(tenant)
+
+    serializer = OrderCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.core.exceptions import ValidationError as DjValidationError
+
+    try:
+        order = create_order(tenant, serializer.validated_data)
+    except DjValidationError as exc:
+        return Response(
+            exc.message_dict if hasattr(exc, "message_dict") else {"detail": str(exc)},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    # Build PayHere payment data (server-side hash, merchant_secret stays server-side)
+    payhere_data = None
+    try:
+        payhere_data = build_payment_initiation_data(order, webstore, tenant)
+    except Exception:
+        _ph8_logger.exception("Failed to build PayHere data for order %s", order.order_number)
+
+    return Response(
+        {
+            "order": OrderDetailSerializer(order).data,
+            "payhere": payhere_data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([_AllowAny])
+def order_status(request, slug: str, order_number: str) -> Response:
+    """
+    GET /api/webstore/public/<slug>/orders/<order_number>/
+
+    Returns the current status of an order for client-side polling after
+    the PayHere redirect. Used to detect payment_status == "paid".
+    """
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    try:
+        from apps.webstore.models import WebstoreOrder
+
+        order = WebstoreOrder.objects.get(
+            tenant=tenant,
+            order_number=order_number,
+            deleted_at__isnull=True,
+        )
+    except Exception:
+        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(OrderDetailSerializer(order).data)
+
+
+@api_view(["GET"])
+@permission_classes([_AllowAny])
+def consumer_order_list(request, slug: str) -> Response:
+    """
+    GET /api/webstore/public/<slug>/customers/orders/
+
+    Returns the authenticated consumer's order history (newest first).
+    Requires a valid consumer JWT in the Authorization header.
+    """
+    tenant = storefront_service.resolve_tenant(slug)
+    _get_webstore_or_404(tenant)
+
+    customer = _get_consumer_from_request(request, tenant)
+    if customer is None:
+        return Response(
+            {"detail": "Authentication required."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    from apps.webstore.models import WebstoreOrder
+    from apps.webstore.serializers.order_serializers import OrderSummarySerializer
+
+    orders = (
+        WebstoreOrder.objects.filter(
+            tenant=tenant,
+            customer=customer,
+            deleted_at__isnull=True,
+        )
+        .order_by("-created_at")[:50]
+    )
+
+    return Response({"orders": OrderSummarySerializer(orders, many=True).data})

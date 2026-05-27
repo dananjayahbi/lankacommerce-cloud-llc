@@ -40,11 +40,17 @@ export function ConsumerLoginForm({ tenantSlug }: Props) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
-            credentials: "include",
           },
         );
 
         if (res.ok) {
+          const data = await res.json() as { access: string; refresh: string };
+          // Persist tokens as httpOnly cookies via the Next.js API route
+          await fetch("/api/auth/set-consumer-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ access: data.access, refresh: data.refresh }),
+          });
           router.push("/account");
         } else {
           const data = (await res.json()) as { detail?: string };

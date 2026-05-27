@@ -146,6 +146,10 @@ REST_FRAMEWORK = {
         "registration": "5/hour",
         "anon": "100/minute",
         "user": "1000/minute",
+        # Phase 8: Webstore consumer-facing throttles
+        "webstore_login": "10/minute",
+        "webstore_register": "5/hour",
+        "webstore_order": "30/minute",
     },
 }
 
@@ -234,6 +238,16 @@ PASSWORD_HASHERS = [
 PAYHERE_MERCHANT_ID = config("PAYHERE_MERCHANT_ID", default="1219688")
 PAYHERE_MERCHANT_SECRET = config("PAYHERE_MERCHANT_SECRET", default="demo-secret")
 PAYHERE_SANDBOX = config("PAYHERE_SANDBOX", default=True, cast=bool)
+# 'sandbox' or 'production' — controls the PayHere checkout URL
+PAYHERE_ENVIRONMENT = config("PAYHERE_ENVIRONMENT", default="sandbox")
+# Base URL for the PayHere notify_url (must be publicly reachable)
+PAYHERE_NOTIFY_URL_BASE = config(
+    "PAYHERE_NOTIFY_URL_BASE", default="http://localhost:8000"
+)
+# Base domain for storefront return/cancel URLs (e.g. "lankacommerce.com")
+STOREFRONT_BASE_DOMAIN = config(
+    "STOREFRONT_BASE_DOMAIN", default="localhost:3000"
+)
 
 # ---------------------------------------------------------------------------
 # Cron Security
