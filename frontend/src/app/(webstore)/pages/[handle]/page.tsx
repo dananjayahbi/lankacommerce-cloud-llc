@@ -13,6 +13,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata, ResolvingMetadata } from "next";
+import { StorefrontChrome } from "@/components/webstore/layout/StorefrontChrome";
 
 // ---------------------------------------------------------------------------
 // ISR
@@ -107,22 +108,24 @@ export default async function StaticMerchantPage({ params }: Props) {
   if (!page || !page.published) notFound();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1
-        className="mb-8 text-3xl font-bold tracking-tight"
-        style={{
-          color: "var(--ws-color-text)",
-          fontFamily: "var(--ws-font-heading)",
-        }}
-      >
-        {page.title}
-      </h1>
-      <div
-        className="prose prose-gray max-w-none"
-        style={{ color: "var(--ws-color-text)" }}
-        // Body HTML is sanitized server-side with bleach before persistence.
-        dangerouslySetInnerHTML={{ __html: page.body_html }}
-      />
-    </main>
+    <StorefrontChrome tenantSlug={slug}>
+      <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+        <h1
+          className="mb-8 text-3xl font-bold tracking-tight"
+          style={{
+            color: "var(--ws-color-text)",
+            fontFamily: "var(--ws-font-heading)",
+          }}
+        >
+          {page.title}
+        </h1>
+        <div
+          className="prose prose-gray max-w-none"
+          style={{ color: "var(--ws-color-text)" }}
+          // Body HTML is sanitized server-side with bleach before persistence.
+          dangerouslySetInnerHTML={{ __html: page.body_html }}
+        />
+      </main>
+    </StorefrontChrome>
   );
 }

@@ -10,6 +10,7 @@
 import { headers, cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { StorefrontChrome } from "@/components/webstore/layout/StorefrontChrome";
 
 export const metadata: Metadata = { title: "Order History" };
 
@@ -93,7 +94,8 @@ export default async function OrderHistoryPage() {
   const orders = await fetchOrders(slug, token);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <StorefrontChrome tenantSlug={slug}>
+      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <h1
         className="mb-8 text-3xl font-bold"
         style={{
@@ -146,6 +148,7 @@ export default async function OrderHistoryPage() {
           ))}
         </ul>
       )}
-    </main>
+      </main>
+    </StorefrontChrome>
   );
 }

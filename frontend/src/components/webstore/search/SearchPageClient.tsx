@@ -64,7 +64,7 @@ interface SearchPageClientProps {
   initialSort: string;
 }
 
-function SearchPageClient({
+function SearchPageInner({
   tenantSlug,
   currency,
   initialQuery,
@@ -255,7 +255,7 @@ export function SearchPageClient({
   initialSort,
 }: SearchPageClientProps) {
   return (
-    <SearchPageClient
+    <SearchPageInner
       tenantSlug={tenantSlug}
       currency={currency}
       initialQuery={initialQuery}

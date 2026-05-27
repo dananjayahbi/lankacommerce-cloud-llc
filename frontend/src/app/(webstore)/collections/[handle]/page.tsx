@@ -141,15 +141,14 @@ export async function generateMetadata(
   const collection = await fetchCollection(slug, handle, { isFiltered: false });
   if (!collection) return {};
 
+  const meta = collection.collection;
   return {
-    title: collection.title,
-    description: collection.description
-      ? collection.description.slice(0, 160)
-      : undefined,
+    title: meta?.seo_title ?? meta?.title ?? collection.title,
+    description: meta?.seo_description ?? (collection.description?.slice(0, 160)) ?? undefined,
     openGraph: {
       type: "website",
-      title: collection.title,
-      images: collection.image_url ? [collection.image_url] : undefined,
+      title: meta?.title ?? collection.title,
+      images: (meta?.image_url ?? collection.image_url) ? [meta?.image_url ?? collection.image_url!] : undefined,
     },
   };
 }
@@ -186,6 +185,8 @@ export default async function CollectionDetailPage({
   if (!collection) notFound();
   if (!config) notFound();
 
+  const collectionHandle = collection.collection?.handle ?? handle;
+
   const tenantData: TenantData = {
     tenant: {
       name: config.tenant_name,
@@ -194,7 +195,7 @@ export default async function CollectionDetailPage({
       currency: config.currency,
       currency_symbol: config.currency_symbol,
     },
-    collections: { [collection.handle]: collection },
+    collections: { [collectionHandle]: collection },
     products: {},
     menus: {},
   };

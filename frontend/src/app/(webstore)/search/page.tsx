@@ -11,6 +11,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { SearchPageClient } from "@/components/webstore/search/SearchPageClient";
+import { StorefrontChrome } from "@/components/webstore/layout/StorefrontChrome";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,13 +64,15 @@ export default async function SearchPage({ searchParams }: Props) {
   }
 
   return (
-    <Suspense>
-      <SearchPageClient
-        tenantSlug={slug}
-        currency={currency}
-        initialQuery={q ?? ""}
-        initialSort={sort ?? ""}
-      />
-    </Suspense>
+    <StorefrontChrome tenantSlug={slug}>
+      <Suspense>
+        <SearchPageClient
+          tenantSlug={slug}
+          currency={currency}
+          initialQuery={q ?? ""}
+          initialSort={sort ?? ""}
+        />
+      </Suspense>
+    </StorefrontChrome>
   );
 }

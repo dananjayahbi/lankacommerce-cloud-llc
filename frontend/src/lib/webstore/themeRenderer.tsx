@@ -45,32 +45,52 @@ export interface ProductSummary {
   id: string;
   handle: string;
   title: string;
-  vendor: string;
-  price: number;
-  compare_at_price: number | null;
   featured_image_url: string | null;
-  variants: ProductVariant[];
+  price_range: { min: string; max: string };
+  compare_at_price_range: { min: string; max: string } | null;
+  variant_count: number;
+  available: boolean;
+  category: { name: string; handle: string } | null;
+  tags: string[];
+  // Only present on full detail responses (product page)
+  description?: string;
+  images?: Array<{ url: string; alt: string }>;
+  variants?: ProductVariant[];
+  options?: Array<{ name: string; values: string[] }>;
+  seo_title?: string;
+  seo_description?: string;
+  related_products?: ProductSummary[];
 }
 
 export interface ProductVariant {
   id: string;
   title: string;
   sku: string;
-  price: number;
-  compare_at_price: number | null;
-  available: boolean;
-  option1: string | null;
-  option2: string | null;
-  option3: string | null;
-  image_url: string | null;
+  price: string; // Decimal string from backend e.g. "19.99"
+  compare_at_price: string | null;
+  stock_quantity: number;
+  is_available: boolean;
+  attributes: Record<string, string>; // e.g. {colour: "Red", size: "L"}
 }
 
 export interface CollectionData {
-  handle: string;
-  title: string;
-  description: string;
-  image_url: string | null;
+  /** Only on collection-detail endpoint (not collection listing) */
+  collection?: {
+    id: string;
+    handle: string;
+    title: string;
+    description: string;
+    image_url: string | null;
+    seo_title: string;
+    seo_description: string;
+  };
+  /** Convenience alias — matches the old shape for backward compat */
+  handle?: string;
+  title?: string;
+  description?: string;
+  image_url?: string | null;
   products: ProductSummary[];
+  meta?: { total: number; page: number; page_size: number; total_pages: number; has_next: boolean; has_prev: boolean };
 }
 
 export interface TenantInfo {

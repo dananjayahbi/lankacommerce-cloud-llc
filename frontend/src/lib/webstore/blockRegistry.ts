@@ -28,6 +28,7 @@ import { RichText } from "@/components/webstore/blocks/RichText";
 import { ProductGrid } from "@/components/webstore/blocks/ProductGrid";
 import { Testimonials } from "@/components/webstore/blocks/Testimonials";
 import { NewsletterSignup } from "@/components/webstore/blocks/NewsletterSignup";
+import { ProductDetailBlock } from "@/components/webstore/blocks/ProductDetail";
 import { PlaceholderBlock } from "@/components/webstore/blocks/PlaceholderBlock";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ export const BLOCK_REGISTRY: BlockRegistry = {
   collection_list: PlaceholderBlock,
   slideshow: PlaceholderBlock,
   countdown_timer: PlaceholderBlock,
-  product_detail: PlaceholderBlock,
+  product_detail: ProductDetailBlock as ComponentType<BlockComponentProps>,
   product_recommendations: PlaceholderBlock,
   collection_header: PlaceholderBlock,
   collection_filters: PlaceholderBlock,

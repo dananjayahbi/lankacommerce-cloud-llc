@@ -12,6 +12,7 @@ import { headers, cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { StorefrontChrome } from "@/components/webstore/layout/StorefrontChrome";
 
 export const metadata: Metadata = { title: "My Account" };
 
@@ -132,7 +133,8 @@ export default async function AccountPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <StorefrontChrome tenantSlug={slug}>
+      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <h1
         className="mb-2 text-3xl font-bold"
         style={{
@@ -215,6 +217,7 @@ export default async function AccountPage() {
           </ul>
         </section>
       </div>
-    </main>
+      </main>
+    </StorefrontChrome>
   );
 }

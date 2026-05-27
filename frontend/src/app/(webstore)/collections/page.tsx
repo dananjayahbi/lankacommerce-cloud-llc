@@ -15,6 +15,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import { StorefrontChrome } from "@/components/webstore/layout/StorefrontChrome";
 
 // ---------------------------------------------------------------------------
 // ISR
@@ -149,25 +150,27 @@ export default async function AllCollectionsPage() {
   const collections = await fetchCollections(slug);
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1
-        className="mb-8 text-3xl font-bold tracking-tight"
-        style={{ color: "var(--ws-color-text)", fontFamily: "var(--ws-font-heading)" }}
-      >
-        Collections
-      </h1>
+    <StorefrontChrome tenantSlug={slug}>
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <h1
+          className="mb-8 text-3xl font-bold tracking-tight"
+          style={{ color: "var(--ws-color-text)", fontFamily: "var(--ws-font-heading)" }}
+        >
+          Collections
+        </h1>
 
-      {collections.length === 0 ? (
-        <p className="text-center text-gray-400 py-20">
-          No collections available yet.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((col) => (
-            <CollectionCard key={col.handle} collection={col} />
-          ))}
-        </div>
-      )}
-    </main>
+        {collections.length === 0 ? (
+          <p className="text-center text-gray-400 py-20">
+            No collections available yet.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {collections.map((col) => (
+              <CollectionCard key={col.handle} collection={col} />
+            ))}
+          </div>
+        )}
+      </main>
+    </StorefrontChrome>
   );
 }

@@ -19,9 +19,8 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata, ResolvingMetadata } from "next";
 import { ThemeRenderer } from "@/lib/webstore/themeRenderer";
-import type { TenantData, ProductSummary, ProductVariant } from "@/lib/webstore/themeRenderer";
+import type { TenantData, ProductSummary } from "@/lib/webstore/themeRenderer";
 import type { ThemeConfig } from "@/lib/webstore/types";
-import { AddToCartSection } from "@/components/webstore/product/AddToCartSection";
 
 // ---------------------------------------------------------------------------
 // ISR
@@ -34,12 +33,8 @@ export const revalidate = 60;
 // ---------------------------------------------------------------------------
 
 interface PublicProductDetail extends ProductSummary {
-  description: string;
-  body_html: string;
   seo_title: string | null;
   seo_description: string | null;
-  published: boolean;
-  options: Array<{ name: string; values: string[] }>;
 }
 
 interface PublicWebstoreConfig {
@@ -107,7 +102,6 @@ async function fetchConfig(slug: string): Promise<PublicWebstoreConfig | null> {
 
 interface Props {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ variant?: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +125,7 @@ export async function generateMetadata(
     product.seo_description ??
     (product.description ? product.description.slice(0, 160) : undefined);
 
-  const lowestPrice = Math.min(...product.variants.map((v: ProductVariant) => v.price));
+  const lowestPrice = product.price_range?.min ?? "0";
 
   return {
     title,
@@ -143,7 +137,7 @@ export async function generateMetadata(
       images: product.featured_image_url ? [product.featured_image_url] : undefined,
     },
     other: {
-      "product:price:amount": String(lowestPrice / 100),
+      "product:price:amount": String(lowestPrice),
       "product:price:currency": "LKR",
     },
   };
@@ -153,9 +147,8 @@ export async function generateMetadata(
 // Page
 // ---------------------------------------------------------------------------
 
-export default async function ProductDetailPage({ params, searchParams }: Props) {
+export default async function ProductDetailPage({ params }: Props) {
   const { handle } = await params;
-  const { variant: variantParam } = await searchParams;
 
   const headerStore = await headers();
   const slug = headerStore.get("x-tenant-slug");
@@ -168,17 +161,8 @@ export default async function ProductDetailPage({ params, searchParams }: Props)
     fetchProduct(slug, handle),
   ]);
 
-  if (!product || !product.published) notFound();
+  if (!product) notFound();
   if (!config) notFound();
-
-  // Resolve selected variant: URL param → first available → first variant
-  const selectedVariant =
-    (variantParam
-      ? product.variants.find((v: ProductVariant) => v.id === variantParam)
-      : undefined) ??
-    product.variants.find((v: ProductVariant) => v.available) ??
-    product.variants[0] ??
-    null;
 
   const tenantData: TenantData = {
     tenant: {
@@ -194,25 +178,11 @@ export default async function ProductDetailPage({ params, searchParams }: Props)
   };
 
   return (
-    <>
-      <ThemeRenderer
-        themeConfig={config.theme_config}
-        template="product"
-        tenantData={tenantData}
-        tenantSlug={slug}
-      />
-      {/*
-       * AddToCartSection is a Client Component rendered outside ThemeRenderer
-       * so it can access the cart store and URL search params. It is positioned
-       * as a portal/overlay by the product_detail block; here we render it as
-       * a data provider that individual blocks hydrate.
-       */}
-      <AddToCartSection
-        product={product}
-        selectedVariantId={selectedVariant?.id ?? null}
-        tenantSlug={slug}
-        currency={config.currency}
-      />
-    </>
+    <ThemeRenderer
+      themeConfig={config.theme_config}
+      template="product"
+      tenantData={tenantData}
+      tenantSlug={slug}
+    />
   );
 }

@@ -35,11 +35,17 @@ interface PublicWebstoreConfig {
   is_enabled: boolean;
   is_password_protected: boolean;
   tenant_name: string;
+  slug: string;
+  logo_url: string | null;
+  currency: string;
+  currency_symbol: string;
   seo_title: string | null;
   seo_description: string | null;
   social_image_url: string | null;
-  contact_email: string | null;
+  customer_accounts: string;
+  cart_settings: Record<string, unknown>;
   theme_config: ThemeConfig;
+  theme: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,20 +73,12 @@ async function fetchPublicConfig(slug: string): Promise<PublicWebstoreConfig | n
 // Coming Soon screen
 // ---------------------------------------------------------------------------
 
-function ComingSoon({ name, contactEmail }: { name: string; contactEmail: string | null }) {
+function ComingSoon({ name }: { name: string }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white px-4 text-center">
       <h1 className="text-3xl font-bold tracking-tight text-gray-900">{name}</h1>
       <p className="text-lg text-gray-500">We&apos;re coming soon.</p>
       <p className="text-sm text-gray-400">This store is currently offline. Check back later.</p>
-      {contactEmail && (
-        <a
-          href={`mailto:${contactEmail}`}
-          className="mt-2 text-sm text-blue-600 underline"
-        >
-          {contactEmail}
-        </a>
-      )}
     </div>
   );
 }
@@ -148,7 +146,7 @@ export default async function WebstoreLayout({
   // Store offline
   if (!config.is_enabled) {
     return (
-      <ComingSoon name={config.tenant_name} contactEmail={config.contact_email} />
+      <ComingSoon name={config.tenant_name} />
     );
   }
 

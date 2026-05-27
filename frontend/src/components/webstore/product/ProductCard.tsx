@@ -22,18 +22,20 @@ import type { ProductSummary } from "@/lib/webstore/themeRenderer";
 // ---------------------------------------------------------------------------
 
 function Price({
-  price,
-  compareAtPrice,
+  priceRange,
+  compareAtPriceRange,
   currency,
 }: {
-  price: number;
-  compareAtPrice: number | null;
+  priceRange: { min: string; max: string };
+  compareAtPriceRange: { min: string; max: string } | null;
   currency: string;
 }) {
-  const fmt = (v: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency }).format(v / 100);
+  const fmt = (v: string) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency }).format(parseFloat(v));
 
-  const onSale = compareAtPrice !== null && compareAtPrice > price;
+  const minPrice = parseFloat(priceRange.min);
+  const compareMin = compareAtPriceRange ? parseFloat(compareAtPriceRange.min) : null;
+  const onSale = compareMin !== null && compareMin > minPrice;
 
   return (
     <span className="flex items-baseline gap-1.5 flex-wrap">
@@ -41,14 +43,14 @@ function Price({
         className={`text-sm font-semibold${onSale ? " text-red-600" : ""}`}
         style={onSale ? undefined : { color: "var(--ws-color-text)" }}
       >
-        {fmt(price)}
+        {fmt(priceRange.min)}
       </span>
-      {onSale && (
+      {onSale && compareAtPriceRange && (
         <span
           className="text-xs line-through"
           style={{ color: "var(--ws-color-text)", opacity: 0.5 }}
         >
-          {fmt(compareAtPrice!)}
+          {fmt(compareAtPriceRange.min)}
         </span>
       )}
     </span>
@@ -82,7 +84,7 @@ interface QuickAddProps {
 
 function QuickAddButton({ product, isPreview }: QuickAddProps) {
   const addItem = useCartStore((s) => s.addItem);
-  const defaultVariant = product.variants[0];
+  const defaultVariant = product.variants?.[0];
 
   if (!defaultVariant) return null;
 
@@ -97,8 +99,8 @@ function QuickAddButton({ product, isPreview }: QuickAddProps) {
         title: product.title,
         variantTitle: defaultVariant.title,
         sku: defaultVariant.sku,
-        price: defaultVariant.price,
-        imageUrl: product.featured_image_url ?? defaultVariant.image_url ?? "",
+        price: Math.round(parseFloat(defaultVariant.price) * 100),
+        imageUrl: product.featured_image_url ?? "",
       },
     );
   };
@@ -113,7 +115,7 @@ function QuickAddButton({ product, isPreview }: QuickAddProps) {
           : `Add ${product.title} to cart`
       }
       title={isPreview ? "Not available in preview" : undefined}
-      disabled={isPreview || !defaultVariant.available}
+      disabled={isPreview || !defaultVariant.is_available}
       className="flex w-full items-center justify-center gap-2 rounded-b-md py-2 text-xs font-semibold text-white opacity-0 transition-all duration-200 group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
       style={{ backgroundColor: "var(--ws-color-primary)" }}
     >
@@ -147,8 +149,9 @@ export function ProductCard({
   currency = "USD",
 }: ProductCardProps) {
   const onSale =
-    product.compare_at_price !== null &&
-    product.compare_at_price > product.price;
+    product.compare_at_price_range !== null &&
+    product.compare_at_price_range !== undefined &&
+    parseFloat(product.compare_at_price_range.min) > parseFloat(product.price_range.min);
 
   if (cardStyle === "horizontal") {
     return (
@@ -174,9 +177,9 @@ export function ProductCard({
           {showSaleBadge && onSale && <SaleBadge />}
         </div>
         <div className="flex flex-col justify-center gap-1">
-          {showVendor && product.vendor && (
+          {showVendor && (
             <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--ws-color-primary)" }}>
-              {product.vendor}
+              {product.category?.name}
             </p>
           )}
           <p
@@ -185,7 +188,7 @@ export function ProductCard({
           >
             {product.title}
           </p>
-          <Price price={product.price} compareAtPrice={product.compare_at_price} currency={currency} />
+          <Price priceRange={product.price_range} compareAtPriceRange={product.compare_at_price_range ?? null} currency={currency} />
         </div>
       </Link>
     );
@@ -231,12 +234,12 @@ export function ProductCard({
 
         {/* Info */}
         <div className={`flex flex-col gap-1 px-3 ${isCompact ? "py-2" : "py-3"}`}>
-          {showVendor && product.vendor && (
+          {showVendor && (
             <p
               className="text-[10px] font-semibold uppercase tracking-wider"
               style={{ color: "var(--ws-color-primary)" }}
             >
-              {product.vendor}
+              {product.category?.name}
             </p>
           )}
           <p
@@ -246,8 +249,8 @@ export function ProductCard({
             {product.title}
           </p>
           <Price
-            price={product.price}
-            compareAtPrice={product.compare_at_price}
+            priceRange={product.price_range}
+            compareAtPriceRange={product.compare_at_price_range ?? null}
             currency={currency}
           />
         </div>

@@ -154,13 +154,19 @@ class StoreConfigView(APIView):
         payload = {
             "is_enabled": True,
             "is_password_protected": webstore.is_password_protected,
-            "store_settings": {
-                "seo_title": webstore.seo_title,
-                "seo_description": webstore.seo_description,
-                "social_image_url": webstore.social_image_url,
-                "customer_accounts": webstore.customer_accounts,
-                "cart_settings": webstore.cart_settings,
-            },
+            # Tenant identity fields
+            "tenant_name": tenant.name,
+            "slug": tenant.slug,
+            "logo_url": tenant.logo_url,
+            "currency": tenant.settings.get("currency", "LKR"),
+            "currency_symbol": tenant.settings.get("currency_symbol", "Rs"),
+            # SEO / social
+            "seo_title": webstore.seo_title or tenant.name,
+            "seo_description": webstore.seo_description,
+            "social_image_url": webstore.social_image_url,
+            # Behaviour settings
+            "customer_accounts": webstore.customer_accounts,
+            "cart_settings": webstore.cart_settings,
             "theme_config": config_data,
             "theme": PublicThemeSerializer(theme).data if theme else None,
         }
