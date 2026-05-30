@@ -653,7 +653,7 @@ function SchemaForm({
                 <SettingField
                     key={def.id}
                     definition={def}
-                    value={values[def.id] ?? def.type === "checkbox" ? false : null}
+                    value={values[def.id] ?? (def.type === "checkbox" ? false : null)}
                     onChange={(next) => onChange(def.id, next)}
                     uploadImage={uploadImage}
                     fetchCollections={fetchCollections}
@@ -748,7 +748,7 @@ function SettingField({
             return (
                 <RangeInput
                     label={definition.label}
-                    value={(value as number) ?? definition.min}
+                    value={typeof value === "number" ? value : (Number(value) || (definition.min ?? 0))}
                     min={definition.min}
                     max={definition.max}
                     step={definition.step}
@@ -895,7 +895,7 @@ function RangeInput({
                     className="h-2 flex-1 cursor-pointer accent-primary"
                 />
                 <span className="w-14 text-right font-mono text-xs text-muted-foreground">
-                    {value.toFixed(step < 1 ? 2 : 0)}
+                    {Number(value).toFixed(step < 1 ? 2 : 0)}
                     {unit ?? ""}
                 </span>
             </div>

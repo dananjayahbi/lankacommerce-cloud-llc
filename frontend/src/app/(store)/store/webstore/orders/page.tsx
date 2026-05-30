@@ -210,14 +210,14 @@ export default function WebstoreOrdersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.results.length === 0 ? (
+              {(data?.results?.length ?? 0) === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-12 text-slate-400 text-sm">
                     No orders found
                   </TableCell>
                 </TableRow>
               ) : (
-                data?.results.map((order) => (
+                data?.results?.map((order) => (
                   <TableRow
                     key={order.id}
                     className="hover:bg-slate-50 cursor-pointer"

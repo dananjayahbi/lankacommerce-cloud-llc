@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { z } from "zod/v4";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Form,
   FormControl,
   FormDescription,
   FormField,
@@ -257,7 +256,7 @@ export function CollectionEditor({ collectionId }: CollectionEditorProps) {
         </Button>
       </div>
 
-      <Form {...form}>
+      <FormProvider {...form}>
         <form className="space-y-6">
           {/* Basic info */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
@@ -532,7 +531,7 @@ export function CollectionEditor({ collectionId }: CollectionEditorProps) {
             />
           </div>
         </form>
-      </Form>
+      </FormProvider>
     </div>
   );
 }

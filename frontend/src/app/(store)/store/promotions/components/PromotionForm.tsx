@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { z } from "zod/v4";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Form,
   FormControl,
   FormDescription,
   FormField,
@@ -194,7 +193,7 @@ export function PromotionForm({
   }
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit as Parameters<typeof form.handleSubmit>[0])} className="space-y-4">
         {/* Name */}
         <FormField
@@ -439,6 +438,6 @@ export function PromotionForm({
           {isSubmitting ? "Saving…" : submitLabel}
         </Button>
       </form>
-    </Form>
+    </FormProvider>
   );
 }

@@ -3,8 +3,6 @@
 import { useEffect, useCallback } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
-import TiptapLink from "@tiptap/extension-link";
 import TiptapImage from "@tiptap/extension-image";
 import {
   Bold,
@@ -81,15 +79,16 @@ export function RichTextEditor({
   minHeight = 320,
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         bulletList: { keepMarks: true },
         orderedList: { keepMarks: true },
-      }),
-      Underline,
-      TiptapLink.configure({
-        openOnClick: false,
-        HTMLAttributes: { rel: "noopener noreferrer" },
+        // In TipTap v3, StarterKit includes Link and Underline — configure them here
+        link: {
+          openOnClick: false,
+          HTMLAttributes: { rel: "noopener noreferrer" },
+        },
       }),
       TiptapImage.configure({ allowBase64: false }),
     ],

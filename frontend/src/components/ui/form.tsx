@@ -73,7 +73,7 @@ function Form({ children, onSubmit, ...props }: FormProps<any>) {
   const hasControl = 'control' in props && typeof (props as Record<string, unknown>).control === 'object'
   if (hasControl) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { control: _c, handleSubmit: _h, register: _r, formState: _f, watch: _w, setValue: _sv, getValues: _gv, reset: _rs, setError: _se, clearErrors: _ce, trigger: _tr, unregister: _ur, ...htmlProps } = props as UseFormReturn & FormProps
+    const { control: _c, handleSubmit: _h, register: _r, formState: _f, watch: _w, setValue: _sv, getValues: _gv, reset: _rs, setError: _se, clearErrors: _ce, trigger: _tr, unregister: _ur, setFocus: _sf, resetField: _rff, getFieldState: _gfs, subscribe: _sbs, ...htmlProps } = props as UseFormReturn & FormProps
     return (
       <FormProvider {...methods}>
         <form onSubmit={onSubmit} {...(htmlProps as React.HTMLAttributes<HTMLFormElement>)}>

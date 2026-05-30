@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { z } from "zod/v4";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +9,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { Loader2, Globe, Lock, Settings2, ShoppingCart } from "lucide-react";
 import {
-  Form,
   FormControl,
   FormDescription,
   FormField,
@@ -152,7 +151,7 @@ function GeneralForm({ config }: { config: WebstoreConfig }) {
   });
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}>
       <form
         onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
         className="space-y-5"
@@ -226,7 +225,7 @@ function GeneralForm({ config }: { config: WebstoreConfig }) {
           </Button>
         </div>
       </form>
-    </Form>
+    </FormProvider>
   );
 }
 
@@ -271,7 +270,7 @@ function DomainForm({ config }: { config: WebstoreConfig }) {
   const autoUrl = `https://${config.slug}.lankacommerce.com/`;
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}>
       <form
         onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
         className="space-y-5"
@@ -346,7 +345,7 @@ function DomainForm({ config }: { config: WebstoreConfig }) {
           </Button>
         </div>
       </form>
-    </Form>
+    </FormProvider>
   );
 }
 
@@ -400,7 +399,7 @@ function PasswordForm({ config }: { config: WebstoreConfig }) {
   });
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}>
       <form
         onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
         className="space-y-5"
@@ -472,7 +471,7 @@ function PasswordForm({ config }: { config: WebstoreConfig }) {
           </Button>
         </div>
       </form>
-    </Form>
+    </FormProvider>
   );
 }
 
@@ -516,7 +515,7 @@ function CheckoutForm({ config }: { config: WebstoreConfig }) {
   });
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}>
       <form
         onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
         className="space-y-5"
@@ -628,7 +627,7 @@ function CheckoutForm({ config }: { config: WebstoreConfig }) {
           </Button>
         </div>
       </form>
-    </Form>
+    </FormProvider>
   );
 }
 
@@ -649,7 +648,7 @@ export default function WebstoreSettingsPage() {
     enabled: !!accessToken,
   });
 
-  if (isLoading) {
+  if (!accessToken || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
