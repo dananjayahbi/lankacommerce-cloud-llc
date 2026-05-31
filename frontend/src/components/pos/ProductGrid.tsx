@@ -163,7 +163,7 @@ export function ProductGrid() {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search products or scan barcode…"
+            placeholder="Search by name or scan barcode… (F1)"
             className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-9 pr-9 font-inter text-[14px] text-[#1B2B3A] placeholder:text-[#64748B] focus:border-[#F97316] focus:outline-none focus:ring-1 focus:ring-[#F97316]"
           />
           {searchInput && (

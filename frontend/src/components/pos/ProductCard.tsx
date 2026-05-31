@@ -104,10 +104,12 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Out-of-stock overlay */}
+        {/* Out-of-stock badge */}
         {isOutOfStock && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-            <span className="font-inter text-[12px] text-[#F97316]">Out of Stock</span>
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center bg-[#EF4444] py-[3px]">
+            <span className="font-inter text-[10px] font-bold uppercase tracking-wider text-white">
+              Out of Stock
+            </span>
           </div>
         )}
       </div>

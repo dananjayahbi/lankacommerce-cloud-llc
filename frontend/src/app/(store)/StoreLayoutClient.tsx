@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
 
 import { ScreenLockOverlay } from "@/components/auth/ScreenLockOverlay";
@@ -66,11 +67,19 @@ export function StoreLayoutClient({
     }
   }, [user, accessToken, setUser]);
 
+  const pathname = usePathname();
+  // POS terminal runs full-screen — no sidebar, no screen-lock overlay
+  const isPosTerminal = pathname?.startsWith("/store/pos") ?? false;
+
   // Enable inactivity timer when a user is authenticated
   useInactivityTimer({
     timeoutMs: 10 * 60 * 1000, // 10 minutes
     enabled: !!user,
   });
+
+  if (isPosTerminal) {
+    return <div className="flex-1">{children}</div>;
+  }
 
   return (
     <>

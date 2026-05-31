@@ -537,7 +537,7 @@ export function CartPanel() {
             type="button"
             disabled={isEmpty}
             onClick={() => setMethodSheetOpen(true)}
-            className="flex h-12 w-full items-center justify-center rounded-lg bg-[#1B2B3A] font-inter text-[16px] font-bold text-white hover:bg-[#2C3E50] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-12 w-full items-center justify-center rounded-lg bg-[#F97316] font-inter text-[16px] font-bold text-white hover:bg-[#EA6C00] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Charge / Pay — {formatCurrency(exchangeCredit ? netPayable : grandTotal)}
           </button>

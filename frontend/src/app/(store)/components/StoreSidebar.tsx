@@ -23,11 +23,12 @@ interface NavItem {
   icon: React.ElementType;
   roles?: string[];
   permission?: string;
+  newTab?: boolean;
 }
 
 const MAIN_NAV: NavItem[] = [
   { href: "/store/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/store/pos", label: "Point of Sale", icon: ShoppingCart },
+  { href: "/store/pos", label: "Point of Sale", icon: ShoppingCart, newTab: true },
   { href: "/store/inventory", label: "Inventory", icon: Package },
   { href: "/store/customers", label: "Customers", icon: Users },
   { href: "/store/suppliers", label: "Suppliers", icon: Truck, roles: ["OWNER", "MANAGER"] },
@@ -74,6 +75,8 @@ export function StoreSidebar() {
       <Link
         key={item.href}
         href={item.href}
+        target={item.newTab ? "_blank" : undefined}
+        rel={item.newTab ? "noopener noreferrer" : undefined}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
           active
             ? "bg-orange-50 text-[#F97316] font-medium border-l-4 border-[#F97316] pl-2"

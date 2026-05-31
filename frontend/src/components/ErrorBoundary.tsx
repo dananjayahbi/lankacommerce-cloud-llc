@@ -27,14 +27,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Report to Sentry if available (optional dependency)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Sentry = require('@sentry/nextjs')
-      Sentry.captureException(error, { extra: { componentStack: info.componentStack } })
-    } catch {
-      // Sentry not installed — silently ignore
-    }
     console.error('[ErrorBoundary]', error, info)
   }
 

@@ -3,7 +3,6 @@
  * Mirrors backend/apps/pos serializer response shapes.
  */
 
-import type { UserPayload } from "@/stores/authStore";
 import type { AppliedDiscount } from "@/types/promotions";
 
 export type PaymentMethod = "CASH" | "CARD" | "SPLIT" | "EXCHANGE";
@@ -14,7 +13,7 @@ export type ShiftStatus = "OPEN" | "CLOSED";
 export interface Shift {
   id: string;
   tenant_id: string;
-  cashier: Pick<UserPayload, "user_id" | "email">;
+  cashier_id: string;
   status: ShiftStatus;
   opened_at: string;
   closed_at: string | null;
@@ -150,7 +149,7 @@ export interface CreateSalePayload {
 export interface Shift {
   id: string;
   tenant_id: string;
-  cashier: Pick<UserPayload, "user_id" | "email">;
+  cashier_id: string;
   status: ShiftStatus;
   opened_at: string;
   closed_at: string | null;
