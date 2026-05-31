@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    // Explicitly set the workspace root to the frontend directory.
+    // Without this, Turbopack traverses up to the monorepo root and watches
+    // the entire repo (including backend/.venv), causing excessive RAM usage.
+    root: process.cwd(),
+  },
   images: {
     remotePatterns: [
       // Django media files (local dev and production)

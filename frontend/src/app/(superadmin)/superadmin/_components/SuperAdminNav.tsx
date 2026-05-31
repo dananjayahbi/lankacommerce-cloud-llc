@@ -8,9 +8,6 @@ import {
   HeartPulse,
   TrendingUpIcon,
   CreditCardIcon,
-  Palette,
-  LayoutTemplate,
-  BarChart3,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -46,12 +43,6 @@ const NAV_ITEMS = [
   },
 ];
 
-const WEBSTORE_ITEMS = [
-  { label: "Themes", href: "/superadmin/webstore/themes", icon: Palette },
-  { label: "Blocks", href: "/superadmin/webstore/blocks", icon: LayoutTemplate },
-  { label: "Stats", href: "/superadmin/webstore/stats", icon: BarChart3 },
-];
-
 export default function SuperAdminNav() {
   const pathname = usePathname();
 
@@ -63,32 +54,6 @@ export default function SuperAdminNav() {
           : pathname.startsWith(item.href);
         const Icon = item.icon;
 
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={[
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-              isActive
-                ? "border-l-4 border-[#F97316] bg-white/10 pl-2 text-white font-semibold"
-                : "border-l-4 border-transparent text-white/80 hover:text-[#F97316] hover:bg-white/5",
-            ].join(" ")}
-          >
-            <Icon size={18} />
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
-
-      {/* Webstore section */}
-      <div className="mt-4 mb-1 px-3">
-        <span className="text-xs font-semibold uppercase tracking-wider text-white/40">
-          Webstore
-        </span>
-      </div>
-      {WEBSTORE_ITEMS.map((item) => {
-        const isActive = pathname.startsWith(item.href);
-        const Icon = item.icon;
         return (
           <Link
             key={item.href}

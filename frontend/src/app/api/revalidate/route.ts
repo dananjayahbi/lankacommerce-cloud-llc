@@ -3,7 +3,7 @@
  *
  * POST /api/revalidate
  *
- * Body: { "secret": "<REVALIDATION_SECRET>", "tag": "webstore-<slug>" }
+ * Body: { "secret": "<REVALIDATION_SECRET>", "tag": "<cache-tag>" }
  *
  * Security:
  *  - Requires a shared secret (REVALIDATION_SECRET env var) in the request body.
@@ -11,12 +11,7 @@
  *  - Returns 400 if the tag is missing or empty.
  *  - Returns 200 on success with { revalidated: true, tag }.
  *
- * Called by the Django backend after any publishable mutation:
- *  - Theme config publish        → tag: "webstore-<slug>"
- *  - Product publish/unpublish   → tag: "webstore-products-<slug>"
- *  - WebstorePage save/delete    → tag: "webstore-pages-<slug>"
- *  - WebstoreMenu save/delete    → tag: "webstore-config-<slug>"
- *  - WebstoreCollection changes  → tag: "webstore-collections-<slug>"
+ * Called by the Django backend after any publishable mutation.
  */
 
 import { revalidateTag } from "next/cache";

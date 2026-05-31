@@ -65,7 +65,6 @@ INSTALLED_APPS = [
     "apps.billing",
     "apps.webhooks",
     "apps.health",
-    "apps.webstore",
 ]
 
 MIDDLEWARE = [
@@ -146,10 +145,6 @@ REST_FRAMEWORK = {
         "registration": "5/hour",
         "anon": "100/minute",
         "user": "1000/minute",
-        # Phase 8: Webstore consumer-facing throttles
-        "webstore_login": "10/minute",
-        "webstore_register": "5/hour",
-        "webstore_order": "30/minute",
     },
 }
 
@@ -280,9 +275,6 @@ STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="")
 # Webhook secret for platform billing webhooks  (whsec_...)
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
-# Optional: separate webhook secret for webstore order webhooks
-# If not set, falls back to STRIPE_WEBHOOK_SECRET
-STRIPE_WEBSTORE_WEBHOOK_SECRET = config("STRIPE_WEBSTORE_WEBHOOK_SECRET", default="")
 # Set to True to enable test mode (informational — actual sandbox is controlled by the key)
 STRIPE_SANDBOX = config("STRIPE_SANDBOX", default=True, cast=bool)
 

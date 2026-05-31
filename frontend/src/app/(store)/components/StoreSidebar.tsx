@@ -14,16 +14,8 @@ import {
   Tag,
   Truck,
   Wallet,
-  Globe,
-  Paintbrush,
-  Palette,
-  Menu,
-  Layers,
-  FileText,
-  ShoppingBag,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
-import { PERMISSIONS } from "@/constants/permissions";
 
 interface NavItem {
   href: string;
@@ -43,17 +35,6 @@ const MAIN_NAV: NavItem[] = [
   { href: "/store/promotions", label: "Promotions", icon: Tag, roles: ["OWNER", "MANAGER"] },
 ];
 
-const WEBSTORE_NAV: NavItem[] = [
-  { href: "/store/webstore", label: "Overview", icon: Globe },
-  { href: "/store/webstore/customize", label: "Customize", icon: Paintbrush },
-  { href: "/store/webstore/themes", label: "Themes", icon: Palette },
-  { href: "/store/webstore/menus", label: "Menus", icon: Menu },
-  { href: "/store/webstore/collections", label: "Collections", icon: Layers },
-  { href: "/store/webstore/pages", label: "Pages", icon: FileText },
-  { href: "/store/webstore/orders", label: "Orders", icon: ShoppingBag },
-  { href: "/store/webstore/settings", label: "Settings", icon: Settings },
-];
-
 const BOTTOM_NAV: NavItem[] = [
   { href: "/store/reports/profit-loss", label: "Reports", icon: BarChart2, roles: ["OWNER", "MANAGER"] },
   { href: "/store/billing", label: "Billing", icon: Wallet, roles: ["OWNER"] },
@@ -66,13 +47,6 @@ export function StoreSidebar() {
   const clearUser = useAuthStore((s) => s.clearUser);
 
   const role = user?.role ?? "";
-  const permissions = user?.permissions ?? [];
-
-  const hasWebstore =
-    role === "SUPER_ADMIN" ||
-    role === "OWNER" ||
-    role === "MANAGER" ||
-    permissions.includes(PERMISSIONS.WEBSTORE_ACCESS);
 
   const visibleMain = MAIN_NAV.filter(
     (item) => !item.roles || item.roles.includes(role),
@@ -83,7 +57,6 @@ export function StoreSidebar() {
 
   function isActive(href: string) {
     if (href === "/store/dashboard") return pathname === href;
-    if (href === "/store/webstore") return pathname === href;
     return pathname.startsWith(href);
   }
 
@@ -134,18 +107,6 @@ export function StoreSidebar() {
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {/* Main navigation */}
         {visibleMain.map(renderNavItem)}
-
-        {/* Webstore group */}
-        {hasWebstore && (
-          <>
-            <div className="pt-3 pb-1 px-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                Webstore
-              </p>
-            </div>
-            {WEBSTORE_NAV.map(renderNavItem)}
-          </>
-        )}
 
         {/* Bottom nav (reports, billing, settings) */}
         {visibleBottom.length > 0 && (
