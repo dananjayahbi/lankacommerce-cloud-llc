@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { z } from "zod/v4";
 import Link from "next/link";
+import { Mail, AlertTriangle } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -72,7 +73,7 @@ export default function ForgotPasswordPage() {
           className="rounded-xl px-4 py-6 text-sm text-center border border-green-100 flex flex-col items-center gap-2.5 animate-fade-in"
           style={{ backgroundColor: "#F0FDF4", color: "#166534" }}
         >
-          <span className="text-3xl select-none mb-1">✉️</span>
+          <Mail className="w-10 h-10 text-green-600 mb-1" />
           <p className="font-bold text-base">Check your inbox</p>
           <p className="text-slate-500 font-light leading-relaxed">
             If an account with that email exists, a reset link has been sent. The link is valid for 1 hour.
@@ -85,7 +86,7 @@ export default function ForgotPasswordPage() {
               className="mb-4 rounded-xl px-4 py-3.5 text-sm font-medium border border-red-100 flex items-center gap-2 animate-shake"
               style={{ backgroundColor: "#FEF2F2", color: "#EF4444" }}
             >
-              <span className="text-base">⚠️</span>
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
               <span>{error}</span>
             </div>
           )}

@@ -7,7 +7,7 @@ import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { z } from "zod/v4";
 import { jwtDecode } from "jwt-decode";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, AlertTriangle, KeyRound } from "lucide-react";
 
 import { loginUser, getTenantPublicInfo, type TenantPublicInfo } from "@/lib/api/auth";
 import { useAuthStore, UserPayload } from "@/stores/authStore";
@@ -207,11 +207,11 @@ export default function LoginPage() {
       {/* Server error */}
       {serverError && (
         <div
-          className="mb-6 rounded-xl px-4 py-3.5 text-sm font-medium border border-red-100 flex items-center gap-2 animate-shake"
+          className="mb-6 rounded-xl px-4 py-3.5 text-sm font-medium border border-red-100 flex items-center gap-2.5 animate-shake"
           style={{ backgroundColor: "#FEF2F2", color: "#EF4444" }}
           role="alert"
         >
-          <span className="text-base">⚠️</span>
+          <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
           <span>{serverError}</span>
         </div>
       )}
@@ -357,9 +357,9 @@ export default function LoginPage() {
       {/* PIN login (SSO style primary outline badge) */}
       <Link
         href="/pin-login"
-        className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 px-4 text-sm font-semibold text-slate-700 transition-all duration-300 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-4 focus:ring-slate-100 shadow-sm"
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 px-4 text-sm font-semibold text-slate-700 transition-all duration-300 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-4 focus:ring-slate-100 shadow-sm group"
       >
-        <span className="text-base select-none">🔑</span>
+        <KeyRound className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
         <span>Sign in with PIN</span>
       </Link>
 
