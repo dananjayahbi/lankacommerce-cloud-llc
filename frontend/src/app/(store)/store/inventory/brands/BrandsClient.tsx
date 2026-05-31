@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandsTable } from "@/components/brands/BrandsTable";
 import { BrandEditSheet } from "@/components/brands/BrandEditSheet";
@@ -20,12 +19,7 @@ export function BrandsClient() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <nav className="text-xs text-muted-foreground">
-              <Link href="/store/inventory" className="hover:underline">Inventory</Link>
-              {" › "}
-              <span className="text-[var(--color-navy)]">Brands</span>
-            </nav>
-            <h1 className="mt-1 text-2xl font-bold text-[var(--color-navy)]">Brands</h1>
+            <h1 className="text-xl font-semibold text-[var(--color-navy)]">Brands</h1>
             <p className="text-sm text-muted-foreground">{brands.length} brands</p>
           </div>
           <Button

@@ -12,11 +12,11 @@ export const productStep1Schema = z.object({
     .or(z.literal("")),
   category_id: z.string().optional(),
   brand_id: z.string().optional(),
-  gender: z.enum(["MEN", "WOMEN", "UNISEX", "KIDS", "TODDLERS"], {
+  gender: z.enum(["MEN", "WOMEN", "UNISEX", "KIDS", "OTHER"], {
     error: "Please select a gender",
   }),
   tags: z.array(z.string()).max(20, "Maximum 20 tags allowed").default([]),
-  tax_rule: z.enum(["STANDARD_VAT", "SSCL", "VAT_EXEMPT"]).default("STANDARD_VAT"),
+  tax_rule: z.enum(["STANDARD_VAT", "REDUCED_VAT", "ZERO_RATED", "EXEMPT"]).default("STANDARD_VAT"),
 });
 
 export type ProductStep1Data = z.infer<typeof productStep1Schema>;

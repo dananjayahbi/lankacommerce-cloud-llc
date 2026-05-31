@@ -3,9 +3,9 @@
  * Mirrors backend/apps/catalog serializer response shapes.
  */
 
-export type GenderType = "MEN" | "WOMEN" | "UNISEX" | "KIDS" | "TODDLERS";
+export type GenderType = "MEN" | "WOMEN" | "UNISEX" | "KIDS" | "OTHER";
 export type ProductStatus = "ACTIVE" | "ARCHIVED";
-export type TaxRule = "STANDARD_VAT" | "SSCL" | "VAT_EXEMPT";
+export type TaxRule = "STANDARD_VAT" | "REDUCED_VAT" | "ZERO_RATED" | "EXEMPT";
 export type StockMovementReason =
   | "SALE"
   | "SALE_RETURN"
@@ -86,7 +86,6 @@ export interface ProductFilters {
   search?: string | undefined;
   category_id?: string | undefined;
   brand_id?: string | undefined;
-  gender?: GenderType | undefined;
   is_archived?: boolean | undefined;
   page?: number | undefined;
   page_size?: number | undefined;

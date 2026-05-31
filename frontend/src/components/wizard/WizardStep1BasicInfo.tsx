@@ -36,13 +36,14 @@ const GENDER_OPTIONS = [
   { value: "WOMEN", label: "Women" },
   { value: "UNISEX", label: "Unisex" },
   { value: "KIDS", label: "Kids" },
-  { value: "TODDLERS", label: "Toddlers" },
+  { value: "OTHER", label: "Other" },
 ] as const;
 
 const TAX_RULE_OPTIONS = [
   { value: "STANDARD_VAT", label: "Standard VAT (15%)" },
-  { value: "SSCL", label: "SSCL" },
-  { value: "VAT_EXEMPT", label: "VAT Exempt" },
+  { value: "REDUCED_VAT", label: "Reduced VAT (2.5%)" },
+  { value: "ZERO_RATED", label: "Zero Rated (0%)" },
+  { value: "EXEMPT", label: "Exempt (0%)" },
 ] as const;
 
 export function WizardStep1BasicInfo() {

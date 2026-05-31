@@ -30,7 +30,6 @@ function InventoryListInner() {
   const search = searchParams.get("search") ?? undefined;
   const categoryId = searchParams.get("categories")?.split(",")[0]; // Use first if multi
   const brandId = searchParams.get("brands")?.split(",")[0];
-  const gender = searchParams.get("genders")?.split(",")[0] as ProductFilters["gender"];
   const isArchived = searchParams.get("status") === "archived" ? true : undefined;
 
   const filters: ProductFilters = {
@@ -39,11 +38,10 @@ function InventoryListInner() {
     search,
     category_id: categoryId,
     brand_id: brandId,
-    gender,
     is_archived: isArchived,
   };
 
-  const hasFilters = !!(search || categoryId || brandId || gender || isArchived !== undefined);
+  const hasFilters = !!(search || categoryId || brandId || isArchived !== undefined);
 
   const { data, isLoading } = useProducts(filters);
 
@@ -199,7 +197,7 @@ export function InventoryListClient({
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-navy)]">
-            Inventory
+            Products
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {totalCount} {totalCount === 1 ? "product" : "products"}

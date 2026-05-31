@@ -8,16 +8,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useBrands } from "@/hooks/useBrands";
 import { mergeSearchParams, getParamArray } from "@/lib/urlUtils";
 import { Search, X, SlidersHorizontal } from "lucide-react";
-import type { GenderType } from "@/types/catalog";
 import { cn } from "@/lib/utils";
-
-const GENDERS: { value: GenderType; label: string }[] = [
-  { value: "MEN", label: "Men" },
-  { value: "WOMEN", label: "Women" },
-  { value: "UNISEX", label: "Unisex" },
-  { value: "KIDS", label: "Kids" },
-  { value: "TODDLERS", label: "Toddlers" },
-];
 
 const STATUSES = [
   { value: "", label: "All" },
@@ -39,7 +30,6 @@ export function InventoryFilterBar() {
   const { data: categories = [] } = useCategories();
   const { data: brands = [] } = useBrands();
 
-  const activeGenders = getParamArray(searchParams, "genders") as GenderType[];
   const activeCategories = getParamArray(searchParams, "categories");
   const activeBrands = getParamArray(searchParams, "brands");
   const activeStatus = searchParams.get("status") ?? "";
@@ -72,13 +62,6 @@ export function InventoryFilterBar() {
     updateUrl({ search: null });
   };
 
-  const toggleGender = (gender: GenderType) => {
-    const next = activeGenders.includes(gender)
-      ? activeGenders.filter((g) => g !== gender)
-      : [...activeGenders, gender];
-    updateUrl({ genders: next.length ? next : null });
-  };
-
   const setStatus = (status: string) => {
     updateUrl({ status: status || null });
   };
@@ -87,7 +70,6 @@ export function InventoryFilterBar() {
   const filterCount =
     activeCategories.length +
     activeBrands.length +
-    activeGenders.length +
     (activeStatus ? 1 : 0);
 
   // Determine if search should use mono font (barcode/SKU heuristic)
@@ -194,27 +176,6 @@ export function InventoryFilterBar() {
               </div>
             </div>
           )}
-
-          {/* Gender filter */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground w-20">Gender</span>
-            <div className="flex flex-wrap gap-1.5">
-              {GENDERS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => toggleGender(value)}
-                  className={cn(
-                    "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
-                    activeGenders.includes(value)
-                      ? "border-[var(--color-navy)] bg-[var(--color-navy)] text-white"
-                      : "border-border bg-surface text-[var(--color-navy)] hover:border-[var(--color-navy)]",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Status filter */}
           <div className="flex flex-wrap items-center gap-2">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CategoryTree } from "@/components/categories/CategoryTree";
 import { InlineCategoryForm } from "@/components/categories/InlineCategoryForm";
@@ -19,12 +18,7 @@ export function CategoriesClient() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <nav className="text-xs text-muted-foreground">
-              <Link href="/store/inventory" className="hover:underline">Inventory</Link>
-              {" › "}
-              <span className="text-[var(--color-navy)]">Categories</span>
-            </nav>
-            <h1 className="mt-1 text-2xl font-bold text-[var(--color-navy)]">Categories</h1>
+            <h1 className="text-xl font-semibold text-[var(--color-navy)]">Categories</h1>
             <p className="text-sm text-muted-foreground">{categories.length} categories</p>
           </div>
           <Button
