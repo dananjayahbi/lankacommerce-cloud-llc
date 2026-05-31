@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { z } from "zod/v4";
+import Link from "next/link";
 
 import { PinEntryModal } from "@/components/auth/PinEntryModal";
 import type { UserPayload } from "@/stores/authStore";
@@ -50,75 +51,68 @@ export default function PinLoginPage() {
 
   return (
     <>
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-[#E2E8F0]">
-          {/* Brand */}
-          <div className="flex flex-col items-center mb-8">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-              style={{ backgroundColor: "#F97316" }}
-            >
-              <span className="text-white font-bold text-xl font-mono">LC</span>
-            </div>
-            <h1
-              className="text-2xl font-bold"
-              style={{ color: "#0F172A", fontFamily: "Inter, sans-serif" }}
-            >
-              LankaCommerce
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "#64748B" }}>
-              Quick PIN access
-            </p>
+      <div className="w-full flex flex-col justify-center">
+        {/* Brand/Header */}
+        <div className="flex flex-col mb-8">
+          {/* Mobile-only branding icon */}
+          <div
+            className="lg:hidden w-12 h-12 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-orange-500/10"
+            style={{ backgroundColor: "#F97316" }}
+          >
+            <span className="text-white font-bold text-xl font-mono">LC</span>
           </div>
-
-          {/* Email form */}
-          <form onSubmit={handleSubmit(onEmailSubmit)}>
-            <div className="mb-4">
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium mb-1.5"
-                style={{ color: "#0F172A" }}
-              >
-                Your email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                {...register("email")}
-                className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none"
-                style={{
-                  borderColor: errors.email ? "#EF4444" : "#E2E8F0",
-                  color: "#0F172A",
-                }}
-                placeholder="you@example.com"
-              />
-              {errors.email && (
-                <p className="mt-1 text-xs" style={{ color: "#EF4444" }}>
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-lg py-2.5 px-4 text-sm font-semibold text-white"
-              style={{ backgroundColor: "#F97316" }}
-            >
-              Continue with PIN
-            </button>
-          </form>
-
-          <p className="mt-4 text-center text-sm" style={{ color: "#64748B" }}>
-            <a
-              href="/login"
-              className="font-medium hover:underline"
-              style={{ color: "#F97316" }}
-            >
-              Back to password login
-            </a>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 font-sans leading-none mb-3">
+            Quick PIN Access
+          </h1>
+          <p className="text-base text-slate-500 font-normal">
+            Enter your email to verify with your store cashier or clerk PIN code.
           </p>
         </div>
+
+        {/* Email form */}
+        <form onSubmit={handleSubmit(onEmailSubmit)} className="space-y-6">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2"
+            >
+              Your email address
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              {...register("email")}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none transition-all duration-300 placeholder:text-slate-400 focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
+              style={{
+                borderColor: errors.email ? "#EF4444" : undefined,
+                color: "#0F172A",
+              }}
+              placeholder="Enter your email"
+            />
+            {errors.email && (
+              <p className="mt-1.5 text-xs font-medium text-red-500 flex items-center gap-1">
+                <span>•</span> {errors.email.message}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-slate-950 py-3.5 px-4 text-sm font-semibold text-white transition-all duration-300 hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-950/10 focus:outline-none focus:ring-4 focus:ring-slate-950/20"
+          >
+            Continue with PIN
+          </button>
+        </form>
+
+        <p className="mt-8 text-center text-sm text-slate-500 font-light">
+          <Link
+            href="/login"
+            className="font-semibold text-slate-900 hover:text-slate-700 hover:underline transition-colors"
+          >
+            Back to password login
+          </Link>
+        </p>
       </div>
 
       {showModal && (
